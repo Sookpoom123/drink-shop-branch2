@@ -381,7 +381,7 @@ def delete_sale_by_id(record_id):
     conn.close()
 
 # ==========================================
-# 🔔 POP-UP DIALOGS (ระบบยืนยันและการตั้งค่า)
+# 🔔 POP-UP DIALOGS
 # ==========================================
 @st.dialog("👤 ตั้งค่ารูปโปรไฟล์")
 def profile_settings_dialog():
@@ -427,24 +427,6 @@ def confirm_delete_dialog(item_id, item_name, qty):
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_sale"):
-            st.rerun()
-
-@st.dialog("⚠️ ยืนยันการเปลี่ยนแปลงราคา")
-def confirm_edit_price_dialog(menu_name, old_cost, new_cost, old_price, new_price):
-    st.write(f"เมนู: **{menu_name}**")
-    st.write(f"• ต้นทุน: `{old_cost:.2f}` บาท 👉 **`{new_cost:.2f}` บาท**")
-    st.write(f"• ราคาขาย: `{old_price:.0f}` บาท 👉 **`{new_price:.0f}` บาท**")
-    st.write("ต้องการยืนยันการบันทึกการเปลี่ยนแปลงนี้ใช่หรือไม่?")
-    
-    col_confirm, col_cancel = st.columns(2)
-    with col_confirm:
-        if st.button("✅ ยืนยันปรับราคา", use_container_width=True, key="btn_confirm_edit_price"):
-            save_menu_item_db(menu_name, new_cost, new_price)
-            st.success(f"อัปเดตราคาเมนู '{menu_name}' สำเร็จ!")
-            time.sleep(0.5)
-            st.rerun()
-    with col_cancel:
-        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_edit_price"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบเมนู")
@@ -632,31 +614,75 @@ else:
             st.session_state.clear()
             st.rerun()
 
-    # --- ส่วนที่ 0: ตารางราคาเมนู ---
+    # --- ส่วนที่ 0: ตารางราคาเมนู (แก้ไขราคาได้ทันทีตรงนี้) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู")
+    
+    if st.session_state.role == "admin":
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดปุ่มบันทึกได้เลย")
+    else:
+        st.caption("ℹ️ ตารางดูราคาหน้าร้าน (การแก้ไขราคาต้องใช้สิทธิ์ Admin)")
+
     search_top_table = st.text_input("🔍 ค้นหาราคา...", "", key="m_search_top_table", placeholder="พิมพ์ชื่อเมนูที่นี่...")
     
     if current_menu:
-        top_menu_data = []
+        top_menu_list = []
         for item, info in current_menu.items():
             if search_top_table.lower() in item.lower():
-                cost_base = info['cost']
-                price_base = info['price']
-                profit_base = price_base - cost_base
-                
-                price_pearl = price_base + PEARL_PRICE
-                cost_pearl = cost_base + PEARL_COST
-                profit_pearl = price_pearl - cost_pearl
-                
-                top_menu_data.append({
+                top_menu_list.append({
                     "เมนู": item,
-                    "ราคา": f"{price_base:.0f}บ.",
-                    "กำไร": f"{profit_base:.1f}บ.",
-                    "+มุก": f"{price_pearl:.0f}บ.",
-                    "กำไรมุก": f"{profit_pearl:.1f}บ."
+                    "ต้นทุน": float(info['cost']),
+                    "ราคาขาย": float(info['price']),
+                    "กำไร": float(round(info['price'] - info['cost'], 2)),
+                    "+มุก": float(info['price'] + PEARL_PRICE),
+                    "กำไรมุก": float(round((info['price'] + PEARL_PRICE) - (info['cost'] + PEARL_COST), 2))
                 })
-        st.dataframe(pd.DataFrame(top_menu_data), use_container_width=True, height=220)
+        
+        df_menu_view = pd.DataFrame(top_menu_list)
+
+        # สิทธิ์ Admin แก้ไขตารางได้ / สิทธิ์ User ดูได้อย่างเดียว
+        disabled_cols = ["เมนู", "กำไร", "+มุก", "กำไรมุก"]
+        if st.session_state.role != "admin":
+            disabled_cols = True
+
+        edited_df = st.data_editor(
+            df_menu_view,
+            use_container_width=True,
+            height=280,
+            disabled=disabled_cols,
+            column_config={
+                "ต้นทุน": st.column_config.NumberColumn("ต้นทุน (บ.)", format="%.2f"),
+                "ราคาขาย": st.column_config.NumberColumn("ราคาขาย (บ.)", format="%.0f"),
+                "กำไร": st.column_config.NumberColumn("กำไร (บ.)", format="%.1f"),
+                "+มุก": st.column_config.NumberColumn("+มุก (บ.)", format="%.0f"),
+                "กำไรมุก": st.column_config.NumberColumn("กำไรมุก (บ.)", format="%.1f")
+            },
+            hide_index=True,
+            key="direct_menu_editor"
+        )
+
+        if st.session_state.role == "admin":
+            if st.button("💾 บันทึกการแก้ไขราคาในตาราง", use_container_width=True, key="btn_save_inline_table"):
+                updated_count = 0
+                for _, row in edited_df.iterrows():
+                    m_name = row["เมนู"]
+                    new_c = row["ต้นทุน"]
+                    new_p = row["ราคาขาย"]
+                    
+                    old_c = current_menu[m_name]["cost"]
+                    old_p = current_menu[m_name]["price"]
+                    
+                    if new_c != old_c or new_p != old_p:
+                        save_menu_item_db(m_name, new_c, new_p)
+                        updated_count += 1
+                
+                if updated_count > 0:
+                    st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.info("ไม่มีรายการที่เปลี่ยนแปลง")
+
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- ส่วนที่ 1: บันทึกการขาย ---
@@ -778,7 +804,7 @@ else:
         st.info("ยังไม่มีข้อมูลรายการขายในระบบ")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 3: สรุปยอดขายรวมและอันดับขายดี (ไม่มีกราฟ) ---
+    # --- ส่วนที่ 3: สรุปยอดขายรวมและอันดับขายดี ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📈 สรุปยอดขายรวม")
 
@@ -821,10 +847,10 @@ else:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # ⚙️ ส่วนจัดการระบบ (ADMIN ONLY LOCKING)
+    # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)
     # ==========================================
-    with st.expander("⚙️ **จัดการระบบ (เพิ่ม/แก้ไข/ลบเมนู & สมาชิก)**", expanded=False):
-        tab_add_menu, tab_edit_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่มเมนู", "✏️ แก้ไขราคา", "🗑️ ลบเมนู", "👥 สมาชิก"])
+    with st.expander("⚙️ **จัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)**", expanded=False):
+        tab_add_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่มเมนู", "🗑️ ลบเมนู", "👥 สมาชิก"])
 
         with tab_add_menu:
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
@@ -839,23 +865,6 @@ else:
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
 
-        # --- แก้ไขราคาเมนูเดิม ---
-        with tab_edit_menu:
-            if len(current_menu) > 0:
-                edit_selected_item = st.selectbox("เลือกเมนูที่ต้องการแก้ไขราคา", list(current_menu.keys()), key="m_edit_item_select")
-                
-                old_c = current_menu[edit_selected_item]["cost"]
-                old_p = current_menu[edit_selected_item]["price"]
-                
-                edit_cost = st.number_input("ราคาต้นทุนใหม่ (บาท)", min_value=0.0, value=float(old_c), step=0.5, key="m_edit_cost_input")
-                edit_price = st.number_input("ราคาขายปกติใหม่ (บาท)", min_value=0.0, value=float(old_p), step=1.0, key="m_edit_price_input")
-                
-                if st.button("💾 บันทึกการเปลี่ยนแปลงราคา", use_container_width=True, key="btn_save_edit_price"):
-                    confirm_edit_price_dialog(edit_selected_item, old_c, edit_cost, old_p, edit_price)
-            else:
-                st.info("ไม่มีเมนูในระบบให้แก้ไข")
-
-        # --- ลบเมนู (เฉพาะ Admin + ยืนยัน) ---
         with tab_del_menu:
             if st.session_state.role == "admin":
                 if len(current_menu) > 0:
@@ -867,7 +876,6 @@ else:
             else:
                 st.error("🔒 สิทธิ์ไม่ถูกต้อง: เฉพาะ Admin เท่านั้นที่สามารถลบเมนูได้")
 
-        # --- จัดการสมาชิก (เฉพาะ Admin + ยืนยัน) ---
         with tab_users:
             if st.session_state.role == "admin":
                 st.write("🟢 **สถานะผู้ใช้งาน**")
