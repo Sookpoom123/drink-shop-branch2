@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 CSS: Warm Sand & Caramel Style + Card Grid
+# 🎨 CSS: Warm Sand & Caramel Style + 3-Column Card Grid
 # ==========================================
 st.markdown(
     """
@@ -42,7 +42,7 @@ st.markdown(
 
     .pos-card {
         background-color: #FFFFFF;
-        padding: 16px;
+        padding: 14px;
         border-radius: 16px;
         border: 1px solid #EADFD8;
         box-shadow: 0 2px 10px rgba(0,0,0,0.02);
@@ -71,17 +71,19 @@ st.markdown(
         transform: scale(0.98);
     }
 
-    /* ตกแต่งปุ่มการ์ดเมนูโดยเฉพาะ */
+    /* ตกแต่งปุ่มการ์ดเมนู (ปรับขนาดสำหรับ 3 คอลัมน์บนมือถือ) */
     div[data-testid="stColumn"] div.stButton > button {
-        height: 68px !important;
+        height: 64px !important;
+        padding: 2px 4px !important;
         background: #FFFFFF !important;
         color: #4A3B32 !important;
         border: 1.5px solid #E5D7CE !important;
-        border-radius: 14px !important;
-        box-shadow: 0 3px 8px rgba(0,0,0,0.04) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
         white-space: pre-line !important;
-        line-height: 1.3 !important;
-        font-size: 14px !important;
+        line-height: 1.2 !important;
+        font-size: 12.5px !important;
+        font-weight: 600 !important;
     }
 
     div[data-testid="stColumn"] div.stButton > button:hover {
@@ -107,8 +109,8 @@ st.markdown(
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 0.8rem !important;
-        padding-right: 0.8rem !important;
+        padding-left: 0.6rem !important;
+        padding-right: 0.6rem !important;
     }
     </style>
     """, 
@@ -703,15 +705,15 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 1: บันทึกการขาย (รูปแบบปุ่มกดการ์ดเมนู Menu Grid/Cards) ---
+    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู แถวละ 3 เมนู) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("🛒 บันทึกรายการขาย")
     
     selected_date = st.date_input("📅 วันที่รายการ", value=date.today())
 
     if current_menu:
-        # ค้นหาเมนูด่วน
-        search_sale_term = st.text_input("🔍 ค้นหาเมนูด่วน...", placeholder="พิมพ์ชื่อเมนูเพื่อกรองการ์ด...", key="search_sale_input")
+        # ช่องค้นหาเมนูด่วน
+        search_sale_term = st.text_input("🔍 ค้นหาเมนูด่วน...", placeholder="พิมพ์ชื่อเมนูเพื่อกรอง...", key="search_sale_input")
         
         # กรองเมนูตามคำค้นหา
         filtered_menu = {k: v for k, v in current_menu.items() if search_sale_term.strip().lower() in k.lower()}
@@ -721,12 +723,12 @@ else:
 
         st.caption("👇 **คลิกเลือกเมนูที่ต้องการ:**")
 
-        # แสดงปุ่มการ์ดเมนูเรียงเป็น 2 คอลัมน์
+        # แสดงปุ่มการ์ดเมนูเรียงเป็น 3 คอลัมน์ (แถวละ 3 เมนู)
         if filtered_menu:
-            menu_cols = st.columns(2)
+            menu_cols = st.columns(3)
             for idx, (m_name, m_info) in enumerate(filtered_menu.items()):
-                col = menu_cols[idx % 2]
-                card_label = f"🧋 {m_name}\n\n🏷️ {m_info['price']:.0f} บาท"
+                col = menu_cols[idx % 3]
+                card_label = f"🧋 {m_name}\n\n🏷️ {m_info['price']:.0f}บ."
                 if col.button(card_label, key=f"btn_card_{m_name}", use_container_width=True):
                     st.session_state.selected_menu_item = m_name
         else:
