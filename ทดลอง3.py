@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 CSS: Warm Sand & Caramel Style
+# 🎨 CSS: Warm Sand & Caramel Style + Card Grid
 # ==========================================
 st.markdown(
     """
@@ -49,6 +49,7 @@ st.markdown(
         margin-bottom: 16px;
     }
 
+    /* ตกแต่งปุ่มทั่วไป */
     div.stButton > button, div.stFormSubmitButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
@@ -68,6 +69,24 @@ st.markdown(
 
     div.stButton > button:active {
         transform: scale(0.98);
+    }
+
+    /* ตกแต่งปุ่มการ์ดเมนูโดยเฉพาะ */
+    div[data-testid="stColumn"] div.stButton > button {
+        height: 68px !important;
+        background: #FFFFFF !important;
+        color: #4A3B32 !important;
+        border: 1.5px solid #E5D7CE !important;
+        border-radius: 14px !important;
+        box-shadow: 0 3px 8px rgba(0,0,0,0.04) !important;
+        white-space: pre-line !important;
+        line-height: 1.3 !important;
+        font-size: 14px !important;
+    }
+
+    div[data-testid="stColumn"] div.stButton > button:hover {
+        background: #F4ECE7 !important;
+        border-color: #8C6D58 !important;
     }
 
     div[data-baseweb="input"] {
@@ -614,7 +633,7 @@ else:
             st.session_state.clear()
             st.rerun()
 
-    # --- ส่วนที่ 0: ตารางราคาเมนู (แก้ไขราคาได้ทันทีตรงนี้) ---
+    # --- ส่วนที่ 0: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู")
     
@@ -640,7 +659,6 @@ else:
         
         df_menu_view = pd.DataFrame(top_menu_list)
 
-        # สิทธิ์ Admin แก้ไขตารางได้ / สิทธิ์ User ดูได้อย่างเดียว
         disabled_cols = ["เมนู", "กำไร", "+มุก", "กำไรมุก"]
         if st.session_state.role != "admin":
             disabled_cols = True
@@ -648,7 +666,7 @@ else:
         edited_df = st.data_editor(
             df_menu_view,
             use_container_width=True,
-            height=280,
+            height=260,
             disabled=disabled_cols,
             column_config={
                 "ต้นทุน": st.column_config.NumberColumn("ต้นทุน (บ.)", format="%.2f"),
@@ -685,19 +703,47 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 1: บันทึกการขาย ---
+    # --- ส่วนที่ 1: บันทึกการขาย (รูปแบบปุ่มกดการ์ดเมนู Menu Grid/Cards) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("🛒 บันทึกรายการขาย")
     
     selected_date = st.date_input("📅 วันที่รายการ", value=date.today())
 
     if current_menu:
-        search_sale_term = st.text_input("🔍 ค้นหาเมนูสำหรับบันทึกขาย:", placeholder="พิมพ์ชื่อเมนูเพื่อกรอง...", key="search_sale_input")
-        filtered_sale_menu = [item for item in current_menu.keys() if search_sale_term.strip().lower() in item.lower()]
+        # ค้นหาเมนูด่วน
+        search_sale_term = st.text_input("🔍 ค้นหาเมนูด่วน...", placeholder="พิมพ์ชื่อเมนูเพื่อกรองการ์ด...", key="search_sale_input")
+        
+        # กรองเมนูตามคำค้นหา
+        filtered_menu = {k: v for k, v in current_menu.items() if search_sale_term.strip().lower() in k.lower()}
 
-        selected_item = st.selectbox("เลือกเมนูที่ต้องการสั่ง:", filtered_sale_menu, key="selected_menu_box")
+        if "selected_menu_item" not in st.session_state or st.session_state.selected_menu_item not in current_menu:
+            st.session_state.selected_menu_item = list(current_menu.keys())[0]
 
-        if selected_item:
+        st.caption("👇 **คลิกเลือกเมนูที่ต้องการ:**")
+
+        # แสดงปุ่มการ์ดเมนูเรียงเป็น 2 คอลัมน์
+        if filtered_menu:
+            menu_cols = st.columns(2)
+            for idx, (m_name, m_info) in enumerate(filtered_menu.items()):
+                col = menu_cols[idx % 2]
+                card_label = f"🧋 {m_name}\n\n🏷️ {m_info['price']:.0f} บาท"
+                if col.button(card_label, key=f"btn_card_{m_name}", use_container_width=True):
+                    st.session_state.selected_menu_item = m_name
+        else:
+            st.warning("ไม่พบเมนูที่ค้นหา")
+
+        selected_item = st.session_state.selected_menu_item
+        
+        st.markdown(
+            f"""
+            <div style="background-color: #EADFD8; padding: 10px; border-radius: 10px; margin: 12px 0 6px 0; text-align: center;">
+                <span style="font-size: 15px; color: #6E5341; font-weight: 600;">📌 เมนูที่เลือก: <b>{selected_item}</b></span>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
+
+        if selected_item in current_menu:
             base_cost = current_menu[selected_item]["cost"]
             base_price = current_menu[selected_item]["price"]
 
