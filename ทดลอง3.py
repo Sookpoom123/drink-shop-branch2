@@ -429,6 +429,24 @@ def confirm_delete_dialog(item_id, item_name, qty):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_sale"):
             st.rerun()
 
+@st.dialog("⚠️ ยืนยันการเปลี่ยนแปลงราคา")
+def confirm_edit_price_dialog(menu_name, old_cost, new_cost, old_price, new_price):
+    st.write(f"เมนู: **{menu_name}**")
+    st.write(f"• ต้นทุน: `{old_cost:.2f}` บาท 👉 **`{new_cost:.2f}` บาท**")
+    st.write(f"• ราคาขาย: `{old_price:.0f}` บาท 👉 **`{new_price:.0f}` บาท**")
+    st.write("ต้องการยืนยันการบันทึกการเปลี่ยนแปลงนี้ใช่หรือไม่?")
+    
+    col_confirm, col_cancel = st.columns(2)
+    with col_confirm:
+        if st.button("✅ ยืนยันปรับราคา", use_container_width=True, key="btn_confirm_edit_price"):
+            save_menu_item_db(menu_name, new_cost, new_price)
+            st.success(f"อัปเดตราคาเมนู '{menu_name}' สำเร็จ!")
+            time.sleep(0.5)
+            st.rerun()
+    with col_cancel:
+        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_edit_price"):
+            st.rerun()
+
 @st.dialog("⚠️ ยืนยันการลบเมนู")
 def confirm_delete_menu_dialog(menu_name):
     st.write(f"คุณต้องการลบเมนู **{menu_name}** ออกจากระบบใช่หรือไม่?")
@@ -773,18 +791,15 @@ else:
             target_df = df_all
 
         if not target_df.empty:
-            # คำนวณยอดรวมทั้งหมด (ไม่แยกเมนู)
             total_money_summary = target_df["total_price"].sum()
             total_cups_summary = target_df["qty"].sum()
 
-            # แสดงเป็นตัวเลขรวมขนาดใหญ่
             col_sum1, col_sum2 = st.columns(2)
             col_sum1.metric("ยอดขายรวมทั้งหมด", f"{total_money_summary:,.0f} บาท")
             col_sum2.metric("จำนวนขายรวมทั้งหมด", f"{total_cups_summary:,} แก้ว")
 
             st.divider()
 
-            # สรุปอันดับขายดีเฉพาะตาราง
             top_sellers = target_df.groupby("item_name").agg(
                 จำนวนแก้ว=('qty', 'sum'),
                 ยอดขายรวม_บาท=('total_price', 'sum')
@@ -808,8 +823,8 @@ else:
     # ==========================================
     # ⚙️ ส่วนจัดการระบบ (ADMIN ONLY LOCKING)
     # ==========================================
-    with st.expander("⚙️ **จัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)**", expanded=False):
-        tab_add_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่มเมนู", "🗑️ ลบเมนู", "👥 สมาชิก"])
+    with st.expander("⚙️ **จัดการระบบ (เพิ่ม/แก้ไข/ลบเมนู & สมาชิก)**", expanded=False):
+        tab_add_menu, tab_edit_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่มเมนู", "✏️ แก้ไขราคา", "🗑️ ลบเมนู", "👥 สมาชิก"])
 
         with tab_add_menu:
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
@@ -823,6 +838,22 @@ else:
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
+
+        # --- แก้ไขราคาเมนูเดิม ---
+        with tab_edit_menu:
+            if len(current_menu) > 0:
+                edit_selected_item = st.selectbox("เลือกเมนูที่ต้องการแก้ไขราคา", list(current_menu.keys()), key="m_edit_item_select")
+                
+                old_c = current_menu[edit_selected_item]["cost"]
+                old_p = current_menu[edit_selected_item]["price"]
+                
+                edit_cost = st.number_input("ราคาต้นทุนใหม่ (บาท)", min_value=0.0, value=float(old_c), step=0.5, key="m_edit_cost_input")
+                edit_price = st.number_input("ราคาขายปกติใหม่ (บาท)", min_value=0.0, value=float(old_p), step=1.0, key="m_edit_price_input")
+                
+                if st.button("💾 บันทึกการเปลี่ยนแปลงราคา", use_container_width=True, key="btn_save_edit_price"):
+                    confirm_edit_price_dialog(edit_selected_item, old_c, edit_cost, old_p, edit_price)
+            else:
+                st.info("ไม่มีเมนูในระบบให้แก้ไข")
 
         # --- ลบเมนู (เฉพาะ Admin + ยืนยัน) ---
         with tab_del_menu:
