@@ -15,7 +15,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 🎨 CSS: Warm Sand & Caramel Style + 3-Column Card Grid
+# 🎨 CSS: Warm Sand & Caramel Style + Force 3 Columns on Mobile
 # ==========================================
 st.markdown(
     """
@@ -42,11 +42,24 @@ st.markdown(
 
     .pos-card {
         background-color: #FFFFFF;
-        padding: 14px;
+        padding: 12px;
         border-radius: 16px;
         border: 1px solid #EADFD8;
         box-shadow: 0 2px 10px rgba(0,0,0,0.02);
         margin-bottom: 16px;
+    }
+
+    /* บังคับ st.columns ให้คงสภาพแนวนอนไม่ยุบในมือถือ */
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+    }
+
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+        min-width: 0 !important;
+        flex: 1 1 0% !important;
     }
 
     /* ตกแต่งปุ่มทั่วไป */
@@ -55,8 +68,8 @@ st.markdown(
         color: #FFFFFF !important;
         border-radius: 12px !important;
         font-weight: 600 !important;
-        font-size: 15px !important;
-        height: 46px !important;
+        font-size: 14px !important;
+        height: 44px !important;
         border: none !important;
         box-shadow: 0 2px 6px rgba(140, 109, 88, 0.2) !important;
         width: 100% !important;
@@ -71,18 +84,18 @@ st.markdown(
         transform: scale(0.98);
     }
 
-    /* ตกแต่งปุ่มการ์ดเมนู (ปรับขนาดสำหรับ 3 คอลัมน์บนมือถือ) */
+    /* ตกแต่งปุ่มการ์ดเมนู (บังคับขนาดและตัวอักษรสำหรับ 3 คอลัมน์บนมือถือ) */
     div[data-testid="stColumn"] div.stButton > button {
-        height: 64px !important;
-        padding: 2px 4px !important;
+        height: 58px !important;
+        padding: 2px 2px !important;
         background: #FFFFFF !important;
         color: #4A3B32 !important;
         border: 1.5px solid #E5D7CE !important;
-        border-radius: 12px !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.04) !important;
+        border-radius: 10px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03) !important;
         white-space: pre-line !important;
-        line-height: 1.2 !important;
-        font-size: 12.5px !important;
+        line-height: 1.15 !important;
+        font-size: 11px !important;
         font-weight: 600 !important;
     }
 
@@ -109,8 +122,8 @@ st.markdown(
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 0.6rem !important;
-        padding-right: 0.6rem !important;
+        padding-left: 0.4rem !important;
+        padding-right: 0.4rem !important;
     }
     </style>
     """, 
@@ -705,7 +718,7 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู แถวละ 3 เมนู) ---
+    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู แถวละ 3 เมนู บังคับเรียงบนมือถือ) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("🛒 บันทึกรายการขาย")
     
@@ -725,12 +738,15 @@ else:
 
         # แสดงปุ่มการ์ดเมนูเรียงเป็น 3 คอลัมน์ (แถวละ 3 เมนู)
         if filtered_menu:
-            menu_cols = st.columns(3)
-            for idx, (m_name, m_info) in enumerate(filtered_menu.items()):
-                col = menu_cols[idx % 3]
-                card_label = f"🧋 {m_name}\n\n🏷️ {m_info['price']:.0f}บ."
-                if col.button(card_label, key=f"btn_card_{m_name}", use_container_width=True):
-                    st.session_state.selected_menu_item = m_name
+            menu_items_list = list(filtered_menu.items())
+            # วนลูปสร้างทีละ 3 ปุ่มต่อ 1 แถว
+            for i in range(0, len(menu_items_list), 3):
+                chunk = menu_items_list[i:i+3]
+                menu_cols = st.columns(3)
+                for idx, (m_name, m_info) in enumerate(chunk):
+                    card_label = f"🧋 {m_name}\n🏷️ {m_info['price']:.0f}บ."
+                    if menu_cols[idx].button(card_label, key=f"btn_card_{m_name}", use_container_width=True):
+                        st.session_state.selected_menu_item = m_name
         else:
             st.warning("ไม่พบเมนูที่ค้นหา")
 
