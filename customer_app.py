@@ -90,18 +90,19 @@ st.markdown(
         background: #6E5341 !important;
     }
 
-    /* ปรับแต่ง Selectbox / Dropdown */
-    div[data-testid="stSelectbox"] label {
+    /* ⚡ ปรับแต่ง Multiselect (เลือกท็อปปิ้งได้หลายรายการ) ⚡ */
+    div[data-testid="stMultiSelect"] label {
         font-size: 11px !important;
         font-weight: 600 !important;
         color: #554840 !important;
         margin-bottom: 2px !important;
     }
 
-    div[data-testid="stSelectbox"] div[role="combobox"] {
-        font-size: 12px !important;
-        padding: 2px 6px !important;
-        min-height: 32px !important;
+    div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
+        background-color: #8C6D58 !important;
+        color: #FFFFFF !important;
+        font-size: 11px !important;
+        border-radius: 4px !important;
     }
 
     /* 🛒 กรอบใหญ่ใบเสร็จตะกร้าสินค้า */
@@ -151,8 +152,8 @@ LANGUAGES = {
         "select_menu": "👇 เลือกเมนู:",
         "price": "ราคา",
         "baht": "บ.",
-        "topping_label": "ท็อปปิ้ง:",
-        "no_topping": "ไม่ใส่ท็อปปิ้ง",
+        "topping_label": "ท็อปปิ้ง (เลือกได้มากกว่า 1):",
+        "no_topping": "เลือกท็อปปิ้ง...",
         "btn_add": "➕ สั่ง",
         "cart_title": "ตะกร้าของคุณ",
         "cart_empty": "ไม่มีรายการในตะกร้า",
@@ -172,8 +173,8 @@ LANGUAGES = {
         "select_menu": "👇 မီနူးရွေးပါ:",
         "price": "ဈေး",
         "baht": "ဘတ်",
-        "topping_label": "ထပ်ဆောင်း:",
-        "no_topping": "မထည့်ပါ",
+        "topping_label": "ထပ်ဆောင်း (အများအပြား ရွေးနိုင်သည်):",
+        "no_topping": "ထပ်ဆောင်း ရွေးပါ...",
         "btn_add": "➕ မှာမည်",
         "cart_title": "ခြင်းတောင်း",
         "cart_empty": "ခြင်းတောင်းထဲတွင် မရှိပါ",
@@ -193,8 +194,8 @@ LANGUAGES = {
         "select_menu": "👇 选择饮料 Select:",
         "price": "ราคา",
         "baht": "฿",
-        "topping_label": "配料 Topping:",
-        "no_topping": "不加配料 None",
+        "topping_label": "配料 Topping (Multiple):",
+        "no_topping": "Select toppings...",
         "btn_add": "➕ 点餐 Order",
         "cart_title": "购物车 Cart",
         "cart_empty": "购物车为空 Empty",
@@ -265,7 +266,7 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB (แก้ไขระบบดึงข้อมูลให้ไม่ค้าง) ---
+# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB ---
 @st.cache_data(ttl=2)
 def load_db_data():
     menu_dict = {}
@@ -289,7 +290,6 @@ def load_db_data():
             topping_rows = c.fetchall()
             topping_dict = {r[0]: {"cost": 1.0, "price": float(r[1])} for r in topping_rows}
         except Exception as e:
-            # สำรองไข่มุกกรณีตารางท็อปปิ้งยังไม่ถูกสร้าง
             topping_dict = {"ไข่มุก": {"cost": 1.0, "price": 5.0}}
             
         conn.close()
@@ -332,11 +332,11 @@ with col_top2:
 
 current_menu, current_toppings = load_db_data()
 
-# ตัวเลือก Dropdown ท็อปปิ้ง
-topping_options = [t['no_topping']] + [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
+# รายการตัวเลือกท็อปปิ้งสำหรับ Multiselect
+topping_options = [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
 
 if not current_menu:
-    st.info("⏳ กำลังโหลดรายการเมนู หรือยังไม่มีเมนูในระบบ...")
+    st.info("⏳ กำลังโหลดรายการเมนู...")
 else:
     filtered_items = []
     for item_name_th, info in current_menu.items():
@@ -367,28 +367,32 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # Dropdown ท็อปปิ้ง Dynamic
-                    selected_tp = st.selectbox(
+                    # 🌟 เปลี่ยนเป็น st.multiselect เลือกท็อปปิ้งได้มากกว่า 1 รายการต่อแก้ว
+                    selected_tps = st.multiselect(
                         t['topping_label'], 
                         options=topping_options, 
-                        key=f"tp_{item_name_th}"
+                        key=f"tp_{item_name_th}",
+                        placeholder=t['no_topping']
                     )
                     
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
-                        tp_price = 0.0
-                        tp_cost = 0.0
-                        tp_text = ""
+                        total_tp_price = 0.0
+                        total_tp_cost = 0.0
+                        selected_tp_names = []
 
-                        if selected_tp != t['no_topping']:
-                            raw_tp_name = selected_tp.split(" (+")[0]
-                            tp_info = current_toppings.get(raw_tp_name, {"price": 0.0, "cost": 0.0})
-                            tp_price = tp_info["price"]
-                            tp_cost = tp_info["cost"]
-                            tp_text = f" (+{raw_tp_name})"
+                        # วนลูปคำนวณราคาท็อปปิ้งทุกตัวที่ถูกเลือก
+                        if selected_tps:
+                            for selected_tp in selected_tps:
+                                raw_tp_name = selected_tp.split(" (+")[0]
+                                tp_info = current_toppings.get(raw_tp_name, {"price": 0.0, "cost": 0.0})
+                                total_tp_price += tp_info["price"]
+                                total_tp_cost += tp_info["cost"]
+                                selected_tp_names.append(raw_tp_name)
 
-                        final_price = price + tp_price
-                        final_cost = cost + tp_cost
+                        final_price = price + total_tp_price
+                        final_cost = cost + total_tp_cost
                         
+                        tp_text = f" (+{', '.join(selected_tp_names)})" if selected_tp_names else ""
                         item_save_name = f"{item_name_th}{tp_text}"
                         item_display_save = f"{display_name}{tp_text}"
 
