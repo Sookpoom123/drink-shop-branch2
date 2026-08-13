@@ -9,13 +9,13 @@ import pandas as pd
 
 # --- ตั้งค่าหน้าตาเว็บไซต์รองรับ Mobile Screen ---
 st.set_page_config(
-    page_title="ร้านน้ำสร้างตัว 🧋 (หลังบ้าน/POS)", 
+    page_title="ร้านน้ำสร้างตัว 🧋 (ระบบหลังบ้าน/ครัว)", 
     page_icon="🧋", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# --- เชื่อมต่อฐานข้อมูล (ปรับให้รองรับ Secrets หลายรูปแบบเพื่อป้องกัน KeyError) ---
+# --- เชื่อมต่อฐานข้อมูล (รองรับ Secrets หลายรูปแบบ) ---
 def get_db_connection():
     db_url = None
     if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
@@ -61,23 +61,11 @@ def load_app_styles():
 
         .pos-card {
             background-color: #FFFFFF;
-            padding: 12px;
+            padding: 14px;
             border-radius: 16px;
             border: 1px solid #EADFD8;
             box-shadow: 0 2px 10px rgba(0,0,0,0.02);
             margin-bottom: 16px;
-        }
-
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-            flex-wrap: nowrap !important;
-            gap: 4px !important;
-        }
-
-        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
-            min-width: 0 !important;
-            flex: 1 1 0% !important;
         }
 
         div.stButton > button, div.stFormSubmitButton > button {
@@ -101,25 +89,6 @@ def load_app_styles():
             transform: scale(0.98);
         }
 
-        div[data-testid="stColumn"] div.stButton > button {
-            height: 58px !important;
-            padding: 2px 2px !important;
-            background: #FFFFFF !important;
-            color: #4A3B32 !important;
-            border: 1.5px solid #E5D7CE !important;
-            border-radius: 10px !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.03) !important;
-            white-space: pre-line !important;
-            line-height: 1.15 !important;
-            font-size: 11px !important;
-            font-weight: 600 !important;
-        }
-
-        div[data-testid="stColumn"] div.stButton > button:hover {
-            background: #F4ECE7 !important;
-            border-color: #8C6D58 !important;
-        }
-
         div[data-baseweb="input"] {
             border-radius: 10px !important;
             border-color: #D3C4B9 !important;
@@ -138,8 +107,8 @@ def load_app_styles():
         .block-container {
             padding-top: 1rem !important;
             padding-bottom: 2rem !important;
-            padding-left: 0.4rem !important;
-            padding-right: 0.4rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
         }
         </style>
         """, 
@@ -163,71 +132,9 @@ DEFAULT_MENU = {
     "เนสกาแฟ": {"cost": 15.63, "price": 30},
     "กาแฟโบราณ": {"cost": 10.51, "price": 25},
     "นมชมพู": {"cost": 10.87, "price": 25},
-    "ผลไม้โซดา": {"cost": 10.47, "price": 19},
-    "น้ำแดงโซดา": {"cost": 10.88, "price": 19},
-    "แดงมะนาวโซดา": {"cost": 11.92, "price": 25},
-    "มะนาวโซดา": {"cost": 9.85, "price": 19},
-    "นมสดบราวซูการ์": {"cost": 11.20, "price": 25},
-    "นมสดสีขาว": {"cost": 12.07, "price": 25},
-    "นมสดคาราเมล": {"cost": 14.55, "price": 30},
-    "นมสดวนิลา": {"cost": 14.55, "price": 30},
-    "นมสดน้ำผึ้ง": {"cost": 13.67, "price": 25},
-    "โยเกิร์ตผลไม้": {"cost": 11.36, "price": 25},
-    "มันม่วงนมสด": {"cost": 13.76, "price": 25},
-    "มะพร้าวนมสด": {"cost": 12.76, "price": 25},
-    "สตรอเบอร์รี่นมสด": {"cost": 11.49, "price": 25},
-    "เผือกนมสด": {"cost": 11.49, "price": 25},
-    "กล้วยนมสด": {"cost": 11.49, "price": 25},
-    "แคนตาลูปนมสด": {"cost": 11.49, "price": 25},
-    "ช็อคโกแลตนมสด": {"cost": 14.64, "price": 25},
-    "ชาแดงปั่น": {"cost": 14.72, "price": 35},
-    "ชาเขียวปั่น": {"cost": 15.73, "price": 35},
-    "ชาไต้หวันปั่น": {"cost": 13.04, "price": 35},
-    "ชานมโกโก้ปั่น": {"cost": 15.07, "price": 35},
-    "ชานมกาแฟ": {"cost": 16.33, "price": 35},
-    "ชานมโอวัลติน": {"cost": 13.94, "price": 35},
-    "ชานมน้ำผึ้ง": {"cost": 17.58, "price": 35},
-    "ชานมลิ้นจี่": {"cost": 15.69, "price": 35},
-    "ชานมแอปเปิ้ล": {"cost": 15.69, "price": 35},
-    "ชาแชมเมล่อน(แคนตาลูป)": {"cost": 15.69, "price": 35},
-    "ชานมสตรอเบอร์รี่": {"cost": 15.69, "price": 35},
-    "โกโก้ปั่น": {"cost": 18.16, "price": 35},
-    "เนสกาแฟปั่น": {"cost": 21.94, "price": 45},
-    "โอวัลตินปั่น": {"cost": 14.77, "price": 35},
-    "นมชมพูปั่น": {"cost": 14.06, "price": 35},
-    "นมสดปั่น": {"cost": 18.35, "price": 35},
-    "วนิลานมสดปั่น": {"cost": 25.19, "price": 45},
-    "คาราเมลนมสดปั่น": {"cost": 25.19, "price": 45},
-    "นมสดน้ำผึ้งปั่น": {"cost": 23.43, "price": 45},
-    "นมสดบราวซูการ์ปั่น": {"cost": 20.58, "price": 45},
-    "ชาไต้หวันบราวซูการ์ปั่น": {"cost": 14.88, "price": 45},
-    "มัทฉะนมสดปั่น": {"cost": 30.66, "price": 55},
-    "มะพร้าวนมสดปั่น": {"cost": 17.17, "price": 35},
-    "มันม่วงนมสดปั่น": {"cost": 18.13, "price": 45},
-    "ผงสตรอเบอร์รี่": {"cost": 14.94, "price": 35},
-    "ผงแคนตาลูป": {"cost": 14.77, "price": 35},
-    "ผงกล้วย": {"cost": 14.77, "price": 35},
-    "ผงเผือก": {"cost": 15.25, "price": 35},
     "ชาไต้หวัน": {"cost": 11.12, "price": 19},
-    "ชานมผลไม้": {"cost": 11.89, "price": 25},
-    "ชานมโกโก้": {"cost": 12.13, "price": 25},
-    "ชานมคาราเมล": {"cost": 14.03, "price": 30},
-    "ชานมวนิลา": {"cost": 14.03, "price": 30},
-    "ชานมไต้หวันบราวซูการ์": {"cost": 11.96, "price": 25},
-    "ชานมเผือก": {"cost": 13.20, "price": 25},
-    "ชาผลไม้ใส": {"cost": 8.03, "price": 19},
     "ชาเย็น(ชานมไทย)": {"cost": 11.58, "price": 25},
     "ชาเขียว(ชาเขียวนม)": {"cost": 12.38, "price": 25},
-    "ชาเขียวน้ำผึ้งมะนาว": {"cost": 12.11, "price": 25},
-    "ชาแดงน้ำผึ้งมะนาว": {"cost": 11.31, "price": 25},
-    "น้ำผึ้งมะนาว": {"cost": 10.07, "price": 19},
-    "ชาลูกบ๊วย": {"cost": 9.03, "price": 24},
-    "น้ำลูกบ๊วย": {"cost": 6.95, "price": 24},
-    "น้ำลูกบ๊วยโซดา": {"cost": 11.94, "price": 24},
-    "น้ำผึ้งมะนาวลูกบ๊วย": {"cost": 12.79, "price": 24},
-    "น้ำแดงลูกบ๊วย": {"cost": 9.18, "price": 24},
-    "น้ำแดงโซดาลูกบ๊วย": {"cost": 14.01, "price": 24},
-    "น้ำลูกบ๊วยปั่น": {"cost": 9.70, "price": 29},
 }
 
 def make_hashes(password):
@@ -427,17 +334,6 @@ def set_user_offline(username):
     conn.commit()
     conn.close()
 
-def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method):
-    conn = get_db_connection()
-    c = conn.cursor()
-    c.execute('''
-        INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    ''', (str(sale_date), item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method))
-    conn.commit()
-    conn.close()
-    st.cache_data.clear()
-
 @st.cache_data(ttl=5)
 def get_sales():
     conn = get_db_connection()
@@ -634,7 +530,7 @@ if not st.session_state.logged_in:
         """
         <div class="mobile-header">
             <h2 style="margin: 0; font-size: 24px; font-weight: 700;">🧋 ร้านน้ำสร้างตัว</h2>
-            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.90;">ระบบบันทึกการขาย Mobile POS & ครัว</p>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.90;">ระบบรับออเดอร์ครัว & จัดการหลังบ้าน</p>
         </div>
         """, 
         unsafe_allow_html=True
@@ -708,7 +604,7 @@ if not st.session_state.logged_in:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 2. หน้าขายสินค้า Mobile Cashier POS + แสดงออเดอร์จากฝั่งลูกค้า
+# 2. หน้าหลักระบบหลังบ้าน / ครัว (Kitchen Display)
 # ==========================================
 else:
     user_img = get_user_profile_img(st.session_state.username)
@@ -741,15 +637,15 @@ else:
             st.session_state.clear()
             st.rerun()
 
-    # --- ส่วนที่ 0: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
+    # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
     render_kitchen_orders()
 
-    # --- ส่วนที่ 1: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
+    # --- ส่วนที่ 2: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
     if st.session_state.role == "admin":
-        st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดปุ่มบันทึกได้เลย (ลูกค้าจะเห็นราคาใหม่ทันที)")
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดบันทึกได้เลย (ลูกค้าจะเห็นราคาใหม่ทันที)")
     else:
         st.caption("ℹ️ ตารางดูราคาหน้าร้าน (การแก้ไขราคาต้องใช้สิทธิ์ Admin)")
 
@@ -814,111 +710,6 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 2: บันทึกการขาย (ปุ่มกดการ์ดเมนูหน้าร้าน) ---
-    st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    st.subheader("🛒 บันทึกรายการขาย (หน้าร้าน)")
-
-    selected_date = st.date_input("📅 วันที่รายการ", value=date.today())
-
-    if current_menu:
-        search_sale_term = st.text_input("🔍 ค้นหาเมนูด่วน...", placeholder="พิมพ์ชื่อเมนูเพื่อกรอง...", key="search_sale_input")
-        
-        filtered_menu = {k: v for k, v in current_menu.items() if search_sale_term.strip().lower() in k.lower()}
-
-        if "selected_menu_item" not in st.session_state or st.session_state.selected_menu_item not in current_menu:
-            st.session_state.selected_menu_item = list(current_menu.keys())[0]
-
-        st.caption("👇 **คลิกเลือกเมนูที่ต้องการ:**")
-
-        if filtered_menu:
-            menu_items_list = list(filtered_menu.items())
-            for i in range(0, len(menu_items_list), 3):
-                chunk = menu_items_list[i:i+3]
-                menu_cols = st.columns(3)
-                for idx, (m_name, m_info) in enumerate(chunk):
-                    card_label = f"🧋 {m_name}\n🏷️ {m_info['price']:.0f}บ."
-                    if menu_cols[idx].button(card_label, key=f"btn_card_{m_name}", use_container_width=True):
-                        st.session_state.selected_menu_item = m_name
-        else:
-            st.warning("ไม่พบเมนูที่ค้นหา")
-
-        selected_item = st.session_state.selected_menu_item
-        
-        st.markdown(
-            f"""
-            <div style="background-color: #EADFD8; padding: 10px; border-radius: 10px; margin: 12px 0 6px 0; text-align: center;">
-                <span style="font-size: 15px; color: #6E5341; font-weight: 600;">📌 เมนูที่เลือก: <b>{selected_item}</b></span>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-
-        if selected_item in current_menu:
-            base_cost = current_menu[selected_item]["cost"]
-            base_price = current_menu[selected_item]["price"]
-
-            c_opt1, c_opt2 = st.columns(2)
-            with c_opt1:
-                add_pearl = st.checkbox("🧋 +ไข่มุก (+5บ.)")
-            with c_opt2:
-                payment_method = st.radio("ชำระเงิน", ["💵 เงินสด", "📱 QR"], horizontal=True)
-
-            unit_price = base_price + (PEARL_PRICE if add_pearl else 0)
-            unit_cost = base_cost + (PEARL_COST if add_pearl else 0)
-            unit_profit = unit_price - unit_cost
-
-            # --- ส่วนจัดการจำนวนแก้ว ---
-            st.write("🔢 **จำนวนแก้ว:**")
-            
-            def update_qty(change):
-                current_v = st.session_state.get("mobile_qty", 1)
-                st.session_state.mobile_qty = max(1, current_v + change)
-
-            q_col1, q_col2, q_col3 = st.columns([1, 2, 1])
-            with q_col1:
-                st.button("➖", key="btn_minus", on_click=update_qty, args=(-1,), use_container_width=True)
-            with q_col2:
-                st.number_input(
-                    "จำนวนแก้ว", 
-                    min_value=1, 
-                    max_value=999, 
-                    value=1,
-                    key="mobile_qty", 
-                    label_visibility="collapsed"
-                )
-            with q_col3:
-                st.button("➕", key="btn_plus", on_click=update_qty, args=(1,), use_container_width=True)
-
-            qty = st.session_state.get("mobile_qty", 1)
-            total_price = unit_price * qty
-            total_cost = unit_cost * qty
-            total_profit = unit_profit * qty
-
-            st.markdown(
-                f"""
-                <div style="background-color: #F3ECE7; padding: 12px; border-radius: 12px; margin: 12px 0; text-align: center; border: 1px solid #EADFD8;">
-                    <span style="font-size: 18px; color: #6E5341; font-weight: 600;">💰 รวม: <b>{total_price:,.0f} บาท</b></span>
-                    <br><small style="color: #8C6D58;">(กำไรสุทธิ {total_profit:,.2f} บาท)</small>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-
-            if st.button("✅ บันทึกการขาย", use_container_width=True):
-                item_name = f"{selected_item} (+ไข่มุก)" if add_pearl else selected_item
-                add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), st.session_state.username, payment_method)
-                st.session_state.last_sale_msg = f"🎉 บันทึกสำเร็จ: {item_name} ({qty} แก้ว) รวม {total_price:.0f} บาท"
-                
-                if "mobile_qty" in st.session_state:
-                    del st.session_state["mobile_qty"]
-                    
-                st.rerun()
-
-    if "last_sale_msg" in st.session_state:
-        st.success(st.session_state.last_sale_msg)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
     # --- ส่วนที่ 3: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
     df_all = get_sales()
 
@@ -948,6 +739,8 @@ else:
     st.divider()
 
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
+    selected_date = st.date_input("📅 ดูประวัติยอดขายของวันที่", value=date.today())
+
     if not df_all.empty:
         df_day = df_all[df_all["sale_date"] == str(selected_date)]
         
