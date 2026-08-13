@@ -522,8 +522,6 @@ if "role" not in st.session_state:
     st.session_state.role = "user"
 if "login_date" not in st.session_state:
     st.session_state.login_date = ""
-if "mobile_qty" not in st.session_state:
-    st.session_state.mobile_qty = 1
 
 today_str = str(date.today())
 
@@ -775,7 +773,7 @@ else:
             unsafe_allow_html=True
         )
 
-       if selected_item in current_menu:
+        if selected_item in current_menu:
             base_cost = current_menu[selected_item]["cost"]
             base_price = current_menu[selected_item]["price"]
 
@@ -793,7 +791,8 @@ else:
             st.write("🔢 **จำนวนแก้ว:**")
             
             def update_qty(change):
-                st.session_state.mobile_qty = max(1, st.session_state.mobile_qty + change)
+                current_v = st.session_state.get("mobile_qty", 1)
+                st.session_state.mobile_qty = max(1, current_v + change)
 
             q_col1, q_col2, q_col3 = st.columns([1, 2, 1])
             with q_col1:
@@ -803,13 +802,14 @@ else:
                     "จำนวนแก้ว", 
                     min_value=1, 
                     max_value=999, 
+                    value=1,
                     key="mobile_qty", 
                     label_visibility="collapsed"
                 )
             with q_col3:
                 st.button("➕", key="btn_plus", on_click=update_qty, args=(1,), use_container_width=True)
 
-            qty = st.session_state.mobile_qty
+            qty = st.session_state.get("mobile_qty", 1)
             total_price = unit_price * qty
             total_cost = unit_cost * qty
             total_profit = unit_profit * qty
@@ -833,6 +833,7 @@ else:
                     del st.session_state["mobile_qty"]
                     
                 st.rerun()
+
     if "last_sale_msg" in st.session_state:
         st.success(st.session_state.last_sale_msg)
 
