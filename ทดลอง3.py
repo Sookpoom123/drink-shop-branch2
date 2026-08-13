@@ -403,12 +403,10 @@ def set_user_offline(username):
 def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name):
     conn = get_db_connection()
     c = conn.cursor()
-    # ดึงเวลาปัจจุบัน
-    now_time = datetime.now().strftime("%H:%M:%S")
     c.execute('''
-        INSERT INTO sales (date, time, item_name, price, quantity, total, seller_name)
+        INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-    ''', (str(sale_date), now_time, item_name, total_price / qty, qty, total_price, seller_name))
+    ''', (str(sale_date), item_name, qty, total_price, total_cost, total_profit, seller_name))
     conn.commit()
     conn.close()
 
