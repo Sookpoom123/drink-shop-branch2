@@ -775,7 +775,7 @@ else:
             unsafe_allow_html=True
         )
 
-        if selected_item in current_menu:
+       if selected_item in current_menu:
             base_cost = current_menu[selected_item]["cost"]
             base_price = current_menu[selected_item]["price"]
 
@@ -789,7 +789,7 @@ else:
             unit_cost = base_cost + (PEARL_COST if add_pearl else 0)
             unit_profit = unit_price - unit_cost
 
-            # --- ส่วนจัดการจำนวนแก้ว (พิมพ์ระบุจำนวนได้ + กดปุ่มปรับได้) ---
+            # --- ส่วนจัดการจำนวนแก้ว ---
             st.write("🔢 **จำนวนแก้ว:**")
             
             def update_qty(change):
@@ -799,7 +799,6 @@ else:
             with q_col1:
                 st.button("➖", key="btn_minus", on_click=update_qty, args=(-1,), use_container_width=True)
             with q_col2:
-                # ช่องพิมพ์จำนวนแก้วโดยตรง (รองรับการพิมพ์จำนวนมากๆ เช่น 100 แก้ว)
                 st.number_input(
                     "จำนวนแก้ว", 
                     min_value=1, 
@@ -825,7 +824,7 @@ else:
                 unsafe_allow_html=True
             )
 
-     if st.button("✅ บันทึกการขาย", use_container_width=True):
+            if st.button("✅ บันทึกการขาย", use_container_width=True):
                 item_name = f"{selected_item} (+ไข่มุก)" if add_pearl else selected_item
                 add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), st.session_state.username, payment_method)
                 st.session_state.last_sale_msg = f"🎉 บันทึกสำเร็จ: {item_name} ({qty} แก้ว) รวม {total_price:.0f} บาท"
