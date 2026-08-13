@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่งการ์ด ---
+# --- CSS ตกแต่งรวม (ปรับปรุงการ์ดเมนู + ตะกร้าสินค้าให้ดูง่าย) ---
 st.markdown(
     """
     <style>
@@ -51,6 +51,7 @@ st.markdown(
         margin-bottom: 12px;
     }
 
+    /* ⚡ ล็อก Layout Grid 3 คอลัมน์ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -58,13 +59,14 @@ st.markdown(
         gap: 8px !important;
     }
 
-    div[data-testid="stHorizontalBlock"] > div {
+    /* ตกแต่งการ์ดเมนู */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
         width: 33.33% !important;
         min-width: 0 !important;
         flex: 1 1 33.33% !important;
     }
 
-    div[data-testid="stColumn"] > div {
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div {
         background-color: #FFFFFF !important;
         border: 2px solid #C8B2A2 !important;
         border-radius: 12px !important;
@@ -78,6 +80,7 @@ st.markdown(
         margin: 6px 0;
     }
 
+    /* ปุ่มกดเพิ่มเมนู */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
@@ -93,6 +96,7 @@ st.markdown(
         background: #6E5341 !important;
     }
 
+    /* ปรับแต่ง Checkbox */
     div[data-testid="stCheckbox"] label span {
         font-size: 11px !important;
         font-weight: 600 !important;
@@ -101,6 +105,14 @@ st.markdown(
     
     div[data-testid="stCheckbox"] {
         margin-bottom: 4px !important;
+    }
+
+    /* ยกเลิกการใส่กรอบให้โซนตะกร้า เพื่อให้จัด layout อิสระได้ */
+    div[data-testid="stVerticalBlock"] > div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div {
+        border: none !important;
+        background-color: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
     }
 
     .block-container {
@@ -114,9 +126,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-PEARL_PRICE = 5.0  # 👈 กำหนดราคาขายไข่มุกที่นี่ (เช่น 5 บาท)
+# --- ตั้งค่าราคาและต้นทุนไข่มุก ---
+PEARL_PRICE = 5.0  # ราคาขายไข่มุก (ปรับเปลี่ยนได้ตามต้องการ)
 PEARL_COST = 1.0   # ต้นทุนไข่มุก
 
+# ==========================================
+# 🌐 พจนานุกรมแปลภาษา UI
+# ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
         "header_title": "🧋 เมนูเครื่องดื่ม",
@@ -129,7 +145,7 @@ LANGUAGES = {
         "baht": "บ.",
         "add_pearl": "+ไข่มุก",
         "btn_add": "➕ สั่ง",
-        "cart_title": "🛒 ตะกร้าของคุณ",
+        "cart_title": "ตะกร้าของคุณ",
         "cart_empty": "ไม่มีรายการในตะกร้า",
         "total_price": "ราคารวม",
         "btn_order": "🚀 ยืนยันการสั่งซื้อ",
@@ -149,7 +165,7 @@ LANGUAGES = {
         "baht": "ဘတ်",
         "add_pearl": "+ကျောက်ကျော",
         "btn_add": "➕ မှာမည်",
-        "cart_title": "🛒 ခြင်းတောင်း",
+        "cart_title": "ခြင်းတောင်း",
         "cart_empty": "ခြင်းတောင်းထဲတွင် မရှိပါ",
         "total_price": "စုစုပေါင်း",
         "btn_order": "🚀 မှာယူမည်",
@@ -169,7 +185,7 @@ LANGUAGES = {
         "baht": "฿",
         "add_pearl": "+珍珠 Pearls",
         "btn_add": "➕ 点餐 Order",
-        "cart_title": "🛒 购物车 Cart",
+        "cart_title": "购物车 Cart",
         "cart_empty": "购物车为空 Empty",
         "total_price": "总计 Total",
         "btn_order": "🚀 确认下单 Confirm",
@@ -238,6 +254,9 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
+# ==========================================
+# ⚡ ดึงเมนูแบบ Real-Time (TTL = 2 วินาที)
+# ==========================================
 @st.cache_data(ttl=2)
 def get_menu_from_db():
     try:
@@ -257,6 +276,7 @@ def get_menu_from_db():
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
+# --- 🔘 เลือกภาษา ---
 selected_lang = st.segmented_control(
     "Language",
     options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文/EN"],
@@ -269,6 +289,7 @@ if not selected_lang:
 
 t = LANGUAGES[selected_lang]
 
+# --- Header ---
 st.markdown(
     f"""
     <div class="customer-header">
@@ -296,6 +317,9 @@ else:
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
+    # ==========================================
+    # 🍱 แสดงผลแบบ Card แยกกรอบชัดเจน 3 คอลัมน์
+    # ==========================================
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
@@ -317,7 +341,7 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # 💡 แสดงผลราคาไข่มุกแบบ Dynamic ทันที
+                    # Checkbox ไข่มุกพร้อมราคา Dynamic
                     pearl_label = f"{t['add_pearl']} (+{PEARL_PRICE:.0f} {t['baht']})"
                     add_pearl = st.checkbox(pearl_label, key=f"p_{item_name_th}")
                     
@@ -338,29 +362,49 @@ else:
                         time.sleep(0.2)
                         st.rerun()
 
-# --- ตะกร้าสินค้า ---
+# ==========================================
+# 🛒 ตะกร้าสินค้า (เวอร์ชันคลีน ดูง่ายสบายตา)
+# ==========================================
 st.divider()
-st.subheader(t['cart_title'])
 
 if not st.session_state.cart:
-    st.info(t['cart_empty'])
+    st.info(f"🛒 {t['cart_title']}: {t['cart_empty']}")
 else:
     total_price = 0
     total_cost = 0
 
+    st.markdown(f"### 🛒 {t['cart_title']}")
+    
+    # แสดงรายการสินค้าในรูปแบบบรรทัดเรียบง่าย
     for idx, cart_item in enumerate(st.session_state.cart):
-        c1, c2, c3 = st.columns([3, 2, 1])
-        c1.write(f"**{cart_item.get('display_name', cart_item['name'])}**")
-        c2.write(f"{cart_item['price']:.0f} {t['baht']}")
-        if c3.button("❌", key=f"remove_cart_{idx}"):
-            st.session_state.cart.pop(idx)
-            st.rerun()
-            
+        col_name, col_price, col_del = st.columns([5, 2, 1], vertical_alignment="center")
+        
+        with col_name:
+            st.markdown(f"<span style='font-size: 15px; font-weight: 600; color: #2C221E;'>• {cart_item.get('display_name', cart_item['name'])}</span>", unsafe_allow_html=True)
+        
+        with col_price:
+            st.markdown(f"<span style='font-size: 15px; font-weight: 700; color: #8C6D58;'>{cart_item['price']:.0f} {t['baht']}</span>", unsafe_allow_html=True)
+        
+        with col_del:
+            if st.button("❌", key=f"remove_cart_{idx}", help="ลบรายการนี้"):
+                st.session_state.cart.pop(idx)
+                st.rerun()
+
         total_price += cart_item['price']
         total_cost += cart_item['cost']
 
-    st.markdown(f"#### 💰 {t['total_price']}: {total_price:.0f} {t['baht']}")
+    st.markdown("<hr style='border: 0; border-top: 2px solid #8C6D58; margin: 12px 0;'>", unsafe_allow_html=True)
 
+    # สรุปรวมราคา
+    col_tot_label, col_tot_val = st.columns([5, 3], vertical_alignment="center")
+    with col_tot_label:
+        st.markdown(f"<h4 style='margin:0; color: #3D342F;'>💰 {t['total_price']}:</h4>", unsafe_allow_html=True)
+    with col_tot_val:
+        st.markdown(f"<h3 style='margin:0; color: #8C6D58; font-weight: 800;'>{total_price:.0f} {t['baht']}</h3>", unsafe_allow_html=True)
+
+    st.write("") # เว้นระยะบรรทัด
+
+    # ปุ่มกดยืนยัน / ล้างตะกร้า
     col_order_btn, col_clear_btn = st.columns([2, 1])
 
     with col_order_btn:
