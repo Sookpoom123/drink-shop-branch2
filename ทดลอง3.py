@@ -118,23 +118,68 @@ def load_app_styles():
 load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
-PEARL_PRICE = 5.0
-PEARL_COST = 1.0
+TOPPING_PRICE = 5.0
+TOPPING_COST = 1.0
 
+# --- รายการเมนูใหม่ 46 รายการจากป้ายหน้าร้าน ---
 DEFAULT_MENU = {
-    "ชาดำเย็น": {"cost": 6.61, "price": 19},
-    "ชามะนาว": {"cost": 7.65, "price": 19},
-    "ชาเขียวมะนาว": {"cost": 8.45, "price": 19},
-    "ชาเขียวใส": {"cost": 7.41, "price": 19},
-    "โอเลี้ยง": {"cost": 6.07, "price": 19},
-    "โกโก้": {"cost": 13.11, "price": 25},
-    "โอวัลติน": {"cost": 10.85, "price": 25},
-    "เนสกาแฟ": {"cost": 15.63, "price": 30},
-    "กาแฟโบราณ": {"cost": 10.51, "price": 25},
-    "นมชมพู": {"cost": 10.87, "price": 25},
-    "ชาไต้หวัน": {"cost": 11.12, "price": 19},
-    "ชาเย็น(ชานมไทย)": {"cost": 11.58, "price": 25},
-    "ชาเขียว(ชาเขียวนม)": {"cost": 12.38, "price": 25},
+    # TAIWAN MILK TEA
+    "ชานมไต้หวัน": {"cost": 8.0, "price": 19},
+    "ชานมวนิลา": {"cost": 10.0, "price": 24},
+    "ชานมคาราเมล": {"cost": 10.0, "price": 24},
+    "ชานมน้ำผึ้ง": {"cost": 10.0, "price": 24},
+    "ชานมลิ้นจี่": {"cost": 10.0, "price": 24},
+    "ชานมเมล่อน": {"cost": 10.0, "price": 24},
+    "ชานมสตรอเบอร์รี่": {"cost": 10.0, "price": 24},
+    "ชานมแอปเปิ้ล": {"cost": 10.0, "price": 24},
+    "ชานมกาแฟ": {"cost": 10.0, "price": 24},
+    "ชานมโกโก้": {"cost": 10.0, "price": 24},
+    "ชานมโอวัลติน": {"cost": 10.0, "price": 24},
+    "ชานมเผือก": {"cost": 10.0, "price": 24},
+
+    # COFFEE
+    "โอเลี้ยง": {"cost": 8.0, "price": 19},
+    "กาแฟโบราณ": {"cost": 10.0, "price": 24},
+    "เนสกาแฟ": {"cost": 10.0, "price": 24},
+
+    # THAI TEA & GREEN TEA
+    "ชาดำเย็น": {"cost": 8.0, "price": 19},
+    "ชามะนาว": {"cost": 8.0, "price": 19},
+    "ชาแดงน้ำผึ้งมะนาว": {"cost": 8.0, "price": 19},
+    "ชาไทยนม": {"cost": 10.0, "price": 24},
+    "ชาเขียวนม": {"cost": 10.0, "price": 24},
+    "ชาเขียวมะนาว": {"cost": 8.0, "price": 19},
+    "ชาเขียวน้ำผึ้งมะนาว": {"cost": 8.0, "price": 19},
+    "ชาเขียวใส": {"cost": 8.0, "price": 19},
+
+    # OTHER / FRESH MILK
+    "โกโก้": {"cost": 10.0, "price": 24},
+    "นมชมพู": {"cost": 10.0, "price": 24},
+    "โอวัลติน": {"cost": 10.0, "price": 24},
+    "นมสดน้ำผึ้ง": {"cost": 10.0, "price": 24},
+    "นมสดคาราเมล": {"cost": 10.0, "price": 24},
+    "นมสดสีขาว": {"cost": 10.0, "price": 24},
+
+    # FRUIT TEA
+    "ชาสตรอเบอร์รี่": {"cost": 8.0, "price": 19},
+    "ชาลิ้นจี่": {"cost": 8.0, "price": 19},
+    "ชาเมล่อน": {"cost": 8.0, "price": 19},
+    "ชาแอปเปิ้ล": {"cost": 8.0, "price": 19},
+
+    # SMOOTHIE
+    "กล้วยนมสดปั่น": {"cost": 15.0, "price": 34},
+    "เผือกนมสดปั่น": {"cost": 15.0, "price": 34},
+    "มะพร้าวนมสดปั่น": {"cost": 15.0, "price": 34},
+    "เมล่อนนมสดปั่น": {"cost": 15.0, "price": 34},
+    "มันม่วงนมสดปั่น": {"cost": 15.0, "price": 34},
+    "สตรอเบอร์รี่นมสดปั่น": {"cost": 15.0, "price": 34},
+    "โกโก้ปั่น": {"cost": 15.0, "price": 34},
+    "โอวัลตินปั่น": {"cost": 15.0, "price": 34},
+    "นมสดปั่น": {"cost": 15.0, "price": 34},
+    "ชานมไต้หวันปั่น": {"cost": 15.0, "price": 34},
+    "ชาไทยนมปั่น": {"cost": 15.0, "price": 34},
+    "ชาเขียวนมปั่น": {"cost": 15.0, "price": 34},
+    "มัทฉะนมสดปั่น": {"cost": 18.0, "price": 44},
 }
 
 def make_hashes(password):
@@ -200,6 +245,20 @@ def init_db():
             
     conn.commit()
     conn.close()
+
+def reset_and_sync_all_menu():
+    """ฟังก์ชั่นสำหรับซิงค์เมนูใหม่ทั้ง 46 รายการเข้า Database"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    for name, info in DEFAULT_MENU.items():
+        c.execute("""
+            INSERT INTO menu_items (name, cost, price)
+            VALUES (%s, %s, %s)
+            ON CONFLICT (name) DO UPDATE SET cost = EXCLUDED.cost, price = EXCLUDED.price
+        """, (name, info['cost'], info['price']))
+    conn.commit()
+    conn.close()
+    st.cache_data.clear()
 
 def update_user_activity(username):
     if username:
@@ -452,8 +511,12 @@ def render_kitchen_orders():
                         st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
                         item_summary_text = []
                         for item in items:
-                            st.write(f"- **{item['name']}** ({item['price']} บาท)")
-                            item_summary_text.append(f"{item['name']}")
+                            # ตรวจสอบการเลือกท็อปปิ้ง
+                            topping = item.get('topping', 'ไม่ใส่ท็อปปิ้ง')
+                            topping_str = f" 🧋 [{topping}]" if topping and topping != "ไม่ใส่ท็อปปิ้ง" else " (ไม่ใส่ท็อปปิ้ง)"
+                            
+                            st.write(f"- **{item['name']}**{topping_str} ({item['price']} บาท)")
+                            item_summary_text.append(f"{item['name']}{topping_str}")
                         
                         st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
 
@@ -645,7 +708,7 @@ else:
     st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
     if st.session_state.role == "admin":
-        st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดบันทึกได้เลย (ลูกค้าจะเห็นราคาใหม่ทันที)")
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** แล้วกดบันทึกได้เลย (ลูกค้าจะเห็นราคาใหม่ทันที)")
     else:
         st.caption("ℹ️ ตารางดูราคาหน้าร้าน (การแก้ไขราคาต้องใช้สิทธิ์ Admin)")
 
@@ -658,29 +721,29 @@ else:
                 top_menu_list.append({
                     "เมนู": item,
                     "ต้นทุน": float(info['cost']),
-                    "ราคาขาย": float(info['price']),
-                    "กำไร": float(round(info['price'] - info['cost'], 2)),
-                    "+มุก": float(info['price'] + PEARL_PRICE),
-                    "กำไรมุก": float(round((info['price'] + PEARL_PRICE) - (info['cost'] + PEARL_COST), 2))
+                    "ราคาปกติ": float(info['price']),
+                    "กำไรปกติ": float(round(info['price'] - info['cost'], 2)),
+                    "+ใส่ท็อปปิ้ง (+5บ.)": float(info['price'] + TOPPING_PRICE),
+                    "กำไร+ท็อปปิ้ง": float(round((info['price'] + TOPPING_PRICE) - (info['cost'] + TOPPING_COST), 2))
                 })
         
         df_menu_view = pd.DataFrame(top_menu_list)
 
-        disabled_cols = ["เมนู", "กำไร", "+มุก", "กำไรมุก"]
+        disabled_cols = ["เมนู", "กำไรปกติ", "+ใส่ท็อปปิ้ง (+5บ.)", "กำไร+ท็อปปิ้ง"]
         if st.session_state.role != "admin":
             disabled_cols = True
 
         edited_df = st.data_editor(
             df_menu_view,
             use_container_width=True,
-            height=260,
+            height=300,
             disabled=disabled_cols,
             column_config={
                 "ต้นทุน": st.column_config.NumberColumn("ต้นทุน (บ.)", format="%.2f"),
-                "ราคาขาย": st.column_config.NumberColumn("ราคาขาย (บ.)", format="%.0f"),
-                "กำไร": st.column_config.NumberColumn("กำไร (บ.)", format="%.1f"),
-                "+มุก": st.column_config.NumberColumn("+มุก (บ.)", format="%.0f"),
-                "กำไรมุก": st.column_config.NumberColumn("กำไรมุก (บ.)", format="%.1f")
+                "ราคาปกติ": st.column_config.NumberColumn("ราคาปกติ (บ.)", format="%.0f"),
+                "กำไรปกติ": st.column_config.NumberColumn("กำไรปกติ (บ.)", format="%.1f"),
+                "+ใส่ท็อปปิ้ง (+5บ.)": st.column_config.NumberColumn("+ใส่ท็อปปิ้ง (+5บ.)", format="%.0f"),
+                "กำไร+ท็อปปิ้ง": st.column_config.NumberColumn("กำไร+ท็อปปิ้ง", format="%.1f")
             },
             hide_index=True,
             key="direct_menu_editor"
@@ -692,7 +755,7 @@ else:
                 for _, row in edited_df.iterrows():
                     m_name = row["เมนู"]
                     new_c = row["ต้นทุน"]
-                    new_p = row["ราคาขาย"]
+                    new_p = row["ราคาปกติ"]
                     
                     old_c = current_menu[m_name]["cost"]
                     old_p = current_menu[m_name]["price"]
@@ -839,12 +902,22 @@ else:
     # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)
     # ==========================================
     with st.expander("⚙️ **จัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)**", expanded=False):
-        tab_add_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่มเมนู", "🗑️ ลบเมนู", "👥 สมาชิก"])
+        tab_add_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่ม/ซิงค์เมนู", "🗑️ ลบเมนู", "👥 สมาชิก"])
 
         with tab_add_menu:
+            if st.session_state.role == "admin":
+                st.write("🔄 **อัปเดตเมนูใหม่ทั้งหมด (46 รายการจากป้ายร้าน):**")
+                if st.button("⚡ ซิงค์เมนู 46 รายการใหม่เข้า Database ทันที", use_container_width=True, key="btn_sync_all_46"):
+                    reset_and_sync_all_menu()
+                    st.success("🎉 ซิงค์รายการเมนูใหม่ทั้ง 46 รายการเข้าฐานข้อมูลเรียบร้อยแล้ว!")
+                    time.sleep(0.5)
+                    st.rerun()
+                st.divider()
+
+            st.write("➕ **เพิ่มเมนูแบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
             new_cost = st.number_input("ราคาต้นทุน (บาท)", min_value=0.0, value=10.0, step=0.5, key="m_add_cost")
-            new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=25, key="m_add_price")
+            new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=24, key="m_add_price")
             
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
