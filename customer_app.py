@@ -265,27 +265,38 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB ---
+# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB (แก้ไขระบบดึงข้อมูลให้ไม่ค้าง) ---
 @st.cache_data(ttl=2)
 def load_db_data():
+    menu_dict = {}
+    topping_dict = {}
+    
     try:
         conn = get_db_connection()
         c = conn.cursor()
         
         # 1. ดึงเมนู
-        c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
-        menu_rows = c.fetchall()
-        menu_dict = {r[0]: {"cost": float(r[1]), "price": float(r[2])} for r in menu_rows}
-        
+        try:
+            c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
+            menu_rows = c.fetchall()
+            menu_dict = {r[0]: {"cost": float(r[1]), "price": float(r[2])} for r in menu_rows}
+        except Exception as e:
+            st.error(f"❌ Error ดึงข้อมูลเมนู: {e}")
+            
         # 2. ดึงท็อปปิ้ง
-        c.execute("SELECT name, cost, price FROM toppings ORDER BY price ASC, name ASC")
-        topping_rows = c.fetchall()
-        topping_dict = {r[0]: {"cost": float(r[1]), "price": float(r[2])} for r in topping_rows}
-        
+        try:
+            c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
+            topping_rows = c.fetchall()
+            topping_dict = {r[0]: {"cost": 1.0, "price": float(r[1])} for r in topping_rows}
+        except Exception as e:
+            # สำรองไข่มุกกรณีตารางท็อปปิ้งยังไม่ถูกสร้าง
+            topping_dict = {"ไข่มุก": {"cost": 1.0, "price": 5.0}}
+            
         conn.close()
-        return menu_dict, topping_dict
     except Exception as e:
-        return {}, {}
+        st.error(f"❌ Connection Error: {e}")
+        
+    return menu_dict, topping_dict
 
 if "cart" not in st.session_state:
     st.session_state.cart = []
@@ -321,11 +332,11 @@ with col_top2:
 
 current_menu, current_toppings = load_db_data()
 
-# สร้างตัวเลือกสำหรับ Dropdown ท็อปปิ้ง
+# ตัวเลือก Dropdown ท็อปปิ้ง
 topping_options = [t['no_topping']] + [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
 
 if not current_menu:
-    st.warning("⏳ Loading...")
+    st.info("⏳ กำลังโหลดรายการเมนู หรือยังไม่มีเมนูในระบบ...")
 else:
     filtered_items = []
     for item_name_th, info in current_menu.items():
@@ -356,7 +367,7 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # เปลี่ยนจาก Checkbox เป็น Dropdown (Selectbox) เลือกท็อปปิ้ง
+                    # Dropdown ท็อปปิ้ง Dynamic
                     selected_tp = st.selectbox(
                         t['topping_label'], 
                         options=topping_options, 
@@ -369,7 +380,6 @@ else:
                         tp_text = ""
 
                         if selected_tp != t['no_topping']:
-                            # แยกชื่อท็อปปิ้งภาษาไทยจากข้อความที่เลือก
                             raw_tp_name = selected_tp.split(" (+")[0]
                             tp_info = current_toppings.get(raw_tp_name, {"price": 0.0, "cost": 0.0})
                             tp_price = tp_info["price"]
