@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง + บังคับ Grid บนมือถือ ---
+# --- CSS ตกแต่ง + บังคับ GRID บนมือถือแบบดึงตัวโครงสร้าง Streamlit ---
 st.markdown(
     """
     <style>
@@ -44,63 +44,60 @@ st.markdown(
 
     .customer-header {
         background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
-        padding: 12px;
-        border-radius: 14px;
+        padding: 10px;
+        border-radius: 12px;
         color: #FFFFFF;
         text-align: center;
-        box-shadow: 0 4px 15px rgba(110, 83, 65, 0.15);
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
 
-    /* ⚡ บังคับ คอลัมน์ Streamlit ไม่ให้ยุบแถวบนมือถือ */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        gap: 8px !important;
+    /* ⚡ บังคับ Container ของ Layout ให้จัดเรียงแบบ Grid บนมือถือ ⚡ */
+    @media (max-width: 768px) {
+        div[data-testid="column"] {
+            width: 31% !important;
+            flex: 1 1 31% !important;
+            min-width: 31% !important;
+        }
+        
+        /* ปรับขนาดปุ่มบนมือถือ */
+        div.stButton > button {
+            padding: 2px 4px !important;
+            font-size: 11px !important;
+            height: auto !important;
+            min-height: 32px !important;
+        }
+
+        /* ปรับขนาด Checkbox บนมือถือ */
+        div[data-testid="stCheckbox"] label span {
+            font-size: 10px !important;
+        }
+
+        .block-container {
+            padding-left: 0.2rem !important;
+            padding-right: 0.2rem !important;
+        }
     }
 
-    /* กำหนดขนาดคอลัมน์ให้แบ่งเท่าๆ กัน (3 เมนูต่อแถว) */
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
-        flex: 1 1 calc(33.333% - 8px) !important;
-        min-width: 100px !important; /* ป้องกันการเบียดจนแคบเกินไป */
-    }
-
-    /* ตกแต่งการ์ดเมนูขนาดกะทัดรัดสำหรับมือถือ */
-    .menu-card {
-        background-color: #FFFFFF;
-        padding: 8px;
-        border-radius: 12px;
-        border: 1px solid #EADFD8;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
-        text-align: center;
-    }
-
-    /* ย่อขนาดตัวหนังสือปุ่มบนมือถือ */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
         border-radius: 8px !important;
         font-weight: 600 !important;
-        font-size: 12px !important;
-        padding: 4px 8px !important;
         border: none !important;
     }
 
-    /* ย่อขนาดตัวหนังสือ Checkbox */
-    div[data-testid="stCheckbox"] label span {
-        font-size: 11px !important;
+    .menu-box {
+        background-color: #FFFFFF;
+        border: 1px solid #EADFD8;
+        border-radius: 10px;
+        padding: 6px;
+        text-align: center;
+        margin-bottom: 4px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     }
 
     div[data-testid="stRadio"] > label {
         display: none !important;
-    }
-
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.4rem !important;
-        padding-right: 0.4rem !important;
     }
     </style>
     """, 
@@ -111,16 +108,15 @@ PEARL_PRICE = 4.0
 PEARL_COST = 1.0
 
 # ==========================================
-# 🌐 พจนานุกรมแปลภาษา (UI Translations)
+# 🌐 พจนานุกรมแปลภาษา
 # ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
         "header_title": "🧋 เมนูเครื่องดื่ม",
-        "header_sub": "เลือกรอบสั่งและสแกนจ่ายได้ทันที",
         "table_label": "📍 โต๊ะ/ชื่อ:",
         "table_default": "โต๊ะ 1",
         "search_label": "🔍 ค้นหา:",
-        "search_placeholder": "ค้นหา...",
+        "search_placeholder": "พิมพ์ชื่อ...",
         "select_menu": "👇 เลือกเมนู:",
         "price": "ราคา",
         "baht": "บ.",
@@ -130,14 +126,13 @@ LANGUAGES = {
         "cart_empty": "ไม่มีรายการในตะกร้า",
         "total_price": "ราคารวม",
         "btn_order": "🚀 ยืนยันการสั่งซื้อ",
-        "btn_clear": "🗑️ ล้าง",
+        "btn_clear": "🗑️ ล้างตะกร้า",
         "err_table": "⚠️ กรุณาระบุหมายเลขโต๊ะหรือชื่อ",
-        "success_msg": "🎉 ส่งออเดอร์เข้าครัวแล้ว!",
-        "toast_added": "เพิ่มลงตะกร้าแล้ว!"
+        "success_msg": "🎉 ส่งออเดอร์เรียบร้อย!",
+        "toast_added": "เพิ่มแล้ว!"
     },
     "🇲🇲 Myanmar": {
         "header_title": "🧋 အဖျော်ယမကာ မီနူး",
-        "header_sub": "စိတ်ကြိုက်မှာယူပါ",
         "table_label": "📍 စားပွဲ/အမည်:",
         "table_default": "စားပွဲ ၁",
         "search_label": "🔍 ရှာရန်:",
@@ -158,7 +153,6 @@ LANGUAGES = {
     },
     "🇨🇳 中文/EN": {
         "header_title": "🧋 菜单 Menu",
-        "header_sub": "Select drinks to order",
         "table_label": "📍 桌号 Table:",
         "table_default": "Table 1",
         "search_label": "🔍 搜索 Search:",
@@ -235,7 +229,7 @@ t = LANGUAGES[selected_lang]
 st.markdown(
     f"""
     <div class="customer-header">
-        <h3 style="margin: 0; font-size: 18px; font-weight: 700;">{t['header_title']}</h3>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 700;">{t['header_title']}</h3>
     </div>
     """, 
     unsafe_allow_html=True
@@ -264,10 +258,11 @@ else:
             filtered_items.append((item_name_th, display_name, info))
 
     # ==========================================
-    # 🍱 บังคับแสดงผล 3 เมนูต่อบรรทัดบนมือถือ
+    # 🍱 แสดงผล 3 เมนูต่อแถวบนมือถือ
     # ==========================================
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
+        # สร้าง 3 คอลัมน์
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
             if i + j < len(filtered_items):
@@ -278,17 +273,17 @@ else:
                 with cols[j]:
                     st.markdown(
                         f"""
-                        <div class="menu-card">
-                            <div style="font-weight: bold; font-size: 13px; height: 36px; overflow: hidden; line-height: 1.2;">{display_name}</div>
-                            <div style="color: #8C6D58; font-weight: bold; font-size: 12px; margin: 4px 0;">{price:.0f} {t['baht']}</div>
+                        <div class="menu-box">
+                            <div style="font-weight: bold; font-size: 12px; height: 32px; overflow: hidden; line-height: 1.1;">{display_name}</div>
+                            <div style="color: #8C6D58; font-weight: bold; font-size: 12px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                         </div>
                         """, 
                         unsafe_allow_html=True
                     )
                     
-                    add_pearl = st.checkbox(f"{t['add_pearl']} (+{PEARL_PRICE:.0f}฿)", key=f"pearl_{item_name_th}")
+                    add_pearl = st.checkbox(f"{t['add_pearl']}", key=f"p_{item_name_th}")
                     
-                    if st.button(t['btn_add'], key=f"btn_add_{item_name_th}", use_container_width=True):
+                    if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
                         final_price = price + (PEARL_PRICE if add_pearl else 0)
                         final_cost = cost + (PEARL_COST if add_pearl else 0)
                         
@@ -302,7 +297,7 @@ else:
                             "cost": final_cost
                         })
                         st.toast(f"{t['toast_added']}", icon="🛒")
-                        time.sleep(0.3)
+                        time.sleep(0.2)
                         st.rerun()
 
 # ==========================================
