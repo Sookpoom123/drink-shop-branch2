@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง + บังคับ GRID บนมือถือแบบดึงตัวโครงสร้าง Streamlit ---
+# --- CSS บังคับ Grid 3 คอลัมน์บนมือถือโดยเฉพาะ ---
 st.markdown(
     """
     <style>
@@ -51,53 +51,60 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* ⚡ บังคับ Container ของ Layout ให้จัดเรียงแบบ Grid บนมือถือ ⚡ */
-    @media (max-width: 768px) {
-        div[data-testid="column"] {
-            width: 31% !important;
-            flex: 1 1 31% !important;
-            min-width: 31% !important;
-        }
-        
-        /* ปรับขนาดปุ่มบนมือถือ */
-        div.stButton > button {
-            padding: 2px 4px !important;
-            font-size: 11px !important;
-            height: auto !important;
-            min-height: 32px !important;
-        }
-
-        /* ปรับขนาด Checkbox บนมือถือ */
-        div[data-testid="stCheckbox"] label span {
-            font-size: 10px !important;
-        }
-
-        .block-container {
-            padding-left: 0.2rem !important;
-            padding-right: 0.2rem !important;
-        }
+    /* ⚡ ปลดล็อก Streamlit Columns ให้แสดงแบบ 3 ช่องบนมือถือ ⚡ */
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
     }
 
-    div.stButton > button {
-        background: #8C6D58 !important;
-        color: #FFFFFF !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        border: none !important;
+    div[data-testid="stHorizontalBlock"] > div {
+        width: 33.33% !important;
+        min-width: 0 !important;
+        flex: 1 1 33.33% !important;
     }
 
+    /* ตกแต่งการ์ดเมนูขนาดเล็ก */
     .menu-box {
         background-color: #FFFFFF;
         border: 1px solid #EADFD8;
-        border-radius: 10px;
-        padding: 6px;
+        border-radius: 8px;
+        padding: 4px;
         text-align: center;
-        margin-bottom: 4px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        margin-bottom: 2px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
-    div[data-testid="stRadio"] > label {
-        display: none !important;
+    /* ปรับปุ่มให้เล็กพอดีช่องมือถือ */
+    div.stButton > button {
+        background: #8C6D58 !important;
+        color: #FFFFFF !important;
+        border-radius: 6px !important;
+        font-weight: 600 !important;
+        font-size: 11px !important;
+        padding: 2px 4px !important;
+        border: none !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 28px !important;
+    }
+
+    /* ย่อขนาดตัวหนังสือ Checkbox ไข่มุก */
+    div[data-testid="stCheckbox"] label span {
+        font-size: 10px !important;
+        padding-left: 2px !important;
+    }
+    
+    div[data-testid="stCheckbox"] label {
+        padding: 0 !important;
+    }
+
+    .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 2rem !important;
+        padding-left: 0.3rem !important;
+        padding-right: 0.3rem !important;
     }
     </style>
     """, 
@@ -258,11 +265,10 @@ else:
             filtered_items.append((item_name_th, display_name, info))
 
     # ==========================================
-    # 🍱 แสดงผล 3 เมนูต่อแถวบนมือถือ
+    # 🍱 บังคับแบ่ง 3 ช่องบนมือถือ
     # ==========================================
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
-        # สร้าง 3 คอลัมน์
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
             if i + j < len(filtered_items):
@@ -274,8 +280,8 @@ else:
                     st.markdown(
                         f"""
                         <div class="menu-box">
-                            <div style="font-weight: bold; font-size: 12px; height: 32px; overflow: hidden; line-height: 1.1;">{display_name}</div>
-                            <div style="color: #8C6D58; font-weight: bold; font-size: 12px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                            <div style="font-weight: bold; font-size: 11px; height: 28px; overflow: hidden; line-height: 1.1;">{display_name}</div>
+                            <div style="color: #8C6D58; font-weight: bold; font-size: 11px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                         </div>
                         """, 
                         unsafe_allow_html=True
@@ -283,7 +289,7 @@ else:
                     
                     add_pearl = st.checkbox(f"{t['add_pearl']}", key=f"p_{item_name_th}")
                     
-                    if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
+                    if st.button(t['btn_add'], key=f"b_{item_name_th}"):
                         final_price = price + (PEARL_PRICE if add_pearl else 0)
                         final_cost = cost + (PEARL_COST if add_pearl else 0)
                         
