@@ -1,10 +1,10 @@
 import base64
 import hashlib
-import sqlite3
+import psycopg2
+import streamlit as st
 import time
 from datetime import datetime, date
 import pandas as pd
-import streamlit as st
 
 # --- ตั้งค่าหน้าตาเว็บไซต์รองรับ Mobile Screen ---
 st.set_page_config(
@@ -13,6 +13,10 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+def get_db_connection():
+    db_url = st.secrets["postgres"]["db_url"]
+    return psycopg2.connect(db_url)
 
 # ==========================================
 # 🎨 CSS: Warm Sand & Caramel Style + Force 3 Columns on Mobile
@@ -130,7 +134,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-DB_FILE = "sales_data.db"
 ADMIN_SECRET_KEY = "3475"
 PEARL_PRICE = 5.0
 PEARL_COST = 1.0
@@ -217,11 +220,11 @@ def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
 def init_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS sales (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             sale_date TEXT,
             item_name TEXT,
             qty INTEGER,
@@ -242,13 +245,15 @@ def init_db():
     ''')
     try:
         c.execute("ALTER TABLE users ADD COLUMN last_active TEXT")
-    except sqlite3.OperationalError:
-        pass
+        conn.commit()
+    except Exception:
+        conn.rollback()
 
     try:
         c.execute("ALTER TABLE users ADD COLUMN profile_img TEXT")
-    except sqlite3.OperationalError:
-        pass
+        conn.commit()
+    except Exception:
+        conn.rollback()
 
     c.execute('''
         CREATE TABLE IF NOT EXISTS menu_items (
@@ -260,32 +265,32 @@ def init_db():
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
         for name, info in DEFAULT_MENU.items():
-            c.execute("INSERT OR IGNORE INTO menu_items (name, cost, price) VALUES (?, ?, ?)", 
-                      (name, info['cost'], info['price']))
+            c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                        (name, info['cost'], info['price']))
     conn.commit()
     conn.close()
 
 def update_user_activity(username):
     if username:
-        conn = sqlite3.connect(DB_FILE)
+        conn = get_db_connection()
         c = conn.cursor()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("UPDATE users SET last_active = ? WHERE username = ?", (now_str, username))
+        c.execute("UPDATE users SET last_active = %s WHERE username = %s", (now_str, username))
         conn.commit()
         conn.close()
 
 def update_user_profile_img(username, img_bytes):
     encoded_img = base64.b64encode(img_bytes).decode('utf-8')
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET profile_img = ? WHERE username = ?", (encoded_img, username))
+    c.execute("UPDATE users SET profile_img = %s WHERE username = %s", (encoded_img, username))
     conn.commit()
     conn.close()
 
 def get_user_profile_img(username):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT profile_img FROM users WHERE username = ?", (username,))
+    c.execute("SELECT profile_img FROM users WHERE username = %s", (username,))
     row = c.fetchone()
     conn.close()
     if row and row[0]:
@@ -293,7 +298,7 @@ def get_user_profile_img(username):
     return None
 
 def get_menu_from_db():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT name, cost, price FROM menu_items")
     rows = c.fetchall()
@@ -304,60 +309,64 @@ def get_menu_from_db():
     return menu_dict
 
 def save_menu_item_db(name, cost, price):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("INSERT OR REPLACE INTO menu_items (name, cost, price) VALUES (?, ?, ?)", (name, cost, price))
+    c.execute("""
+        INSERT INTO menu_items (name, cost, price) 
+        VALUES (%s, %s, %s)
+        ON CONFLICT (name) DO UPDATE SET cost = EXCLUDED.cost, price = EXCLUDED.price
+    """, (name, cost, price))
     conn.commit()
     conn.close()
 
 def delete_menu_item_db(name):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM menu_items WHERE name = ?", (name,))
+    c.execute("DELETE FROM menu_items WHERE name = %s", (name,))
     conn.commit()
     conn.close()
 
 def add_user(username, password, role='user'):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
-        c.execute('INSERT INTO users (username, password, role, last_active) VALUES (?, ?, ?, ?)', 
-                  (username, make_hashes(password), role, now_str))
+        c.execute('INSERT INTO users (username, password, role, last_active) VALUES (%s, %s, %s, %s)', 
+                    (username, make_hashes(password), role, now_str))
         conn.commit()
         conn.close()
         return True
-    except sqlite3.IntegrityError:
+    except psycopg2.IntegrityError:
         conn.close()
         return False
 
 def login_user(username, password):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT username, role FROM users WHERE username = ? AND password = ?', 
-              (username, make_hashes(password)))
+    c.execute('SELECT username, role FROM users WHERE username = %s AND password = %s',
+                (username, make_hashes(password)))
     data = c.fetchone()
     conn.close()
     return data
 
 def get_user_role(username):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT role FROM users WHERE username = ?', (username,))
+    c.execute('SELECT role FROM users WHERE username = %s', (username,))
     data = c.fetchone()
     conn.close()
     return data[0] if data else "user"
 
 def get_all_users_with_status():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('SELECT username, role, last_active FROM users')
     rows = c.fetchall()
     conn.close()
-    
+
     users_status = []
     now = datetime.now()
-    
+
     for username, role, last_active in rows:
         is_online = False
         if last_active:
@@ -378,39 +387,39 @@ def get_all_users_with_status():
     return users_status
 
 def delete_user(username):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('DELETE FROM users WHERE username = ?', (username,))
+    c.execute('DELETE FROM users WHERE username = %s', (username,))
     conn.commit()
     conn.close()
 
 def set_user_offline(username):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET last_active = NULL WHERE username = ?", (username,))
+    c.execute("UPDATE users SET last_active = NULL WHERE username = %s", (username,))
     conn.commit()
     conn.close()
 
 def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, payment_method):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('''
         INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, payment_method)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
     ''', (str(sale_date), item_name, qty, total_price, total_cost, total_profit, payment_method))
     conn.commit()
     conn.close()
 
 def get_sales():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM sales", conn)
     conn.close()
     return df
 
 def delete_sale_by_id(record_id):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM sales WHERE id = ?", (record_id,))
+    c.execute("DELETE FROM sales WHERE id = %s", (record_id,))
     conn.commit()
     conn.close()
 
@@ -420,7 +429,7 @@ def delete_sale_by_id(record_id):
 @st.dialog("👤 ตั้งค่ารูปโปรไฟล์")
 def profile_settings_dialog():
     st.write(f"ผู้ใช้งาน: **{st.session_state.username}**")
-    
+
     current_img = get_user_profile_img(st.session_state.username)
     if current_img:
         st.markdown(
@@ -431,9 +440,9 @@ def profile_settings_dialog():
             """, 
             unsafe_allow_html=True
         )
-    
+
     uploaded_file = st.file_uploader("เลือกรูปภาพโปรไฟล์ใหม่ (PNG, JPG)", type=["png", "jpg", "jpeg"])
-    
+
     col1, col2 = st.columns(2)
     with col1:
         if st.button("💾 บันทึกรูป", use_container_width=True, key="btn_save_profile"):
@@ -491,6 +500,7 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
+# --- เรียกใช้งานระบบฐานข้อมูล ---
 init_db()
 
 # ==========================================
@@ -518,7 +528,7 @@ if st.session_state.logged_in and st.session_state.login_date != today_str:
 if not st.session_state.logged_in and "user" in st.query_params and "login_date" in st.query_params:
     saved_user = st.query_params["user"]
     saved_date = st.query_params["login_date"]
-    
+
     if saved_date == today_str:
         st.session_state.logged_in = True
         st.session_state.username = saved_user
@@ -546,7 +556,7 @@ if not st.session_state.logged_in:
         """, 
         unsafe_allow_html=True
     )
-    
+
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     auth_tab1, auth_tab2 = st.tabs(["🔑 เข้าสู่ระบบ", "📝 สมัครสมาชิก"])
 
@@ -619,7 +629,7 @@ if not st.session_state.logged_in:
 # ==========================================
 else:
     user_img = get_user_profile_img(st.session_state.username)
-    
+
     col_u1, col_u2 = st.columns([3, 1])
     with col_u1:
         if user_img:
@@ -651,14 +661,14 @@ else:
     # --- ส่วนที่ 0: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู")
-    
+
     if st.session_state.role == "admin":
         st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดปุ่มบันทึกได้เลย")
     else:
         st.caption("ℹ️ ตารางดูราคาหน้าร้าน (การแก้ไขราคาต้องใช้สิทธิ์ Admin)")
 
     search_top_table = st.text_input("🔍 ค้นหาราคา...", "", key="m_search_top_table", placeholder="พิมพ์ชื่อเมนูที่นี่...")
-    
+
     if current_menu:
         top_menu_list = []
         for item, info in current_menu.items():
@@ -721,7 +731,7 @@ else:
     # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู แถวละ 3 เมนู บังคับเรียงบนมือถือ) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("🛒 บันทึกรายการขาย")
-    
+
     selected_date = st.date_input("📅 วันที่รายการ", value=date.today())
 
     if current_menu:
