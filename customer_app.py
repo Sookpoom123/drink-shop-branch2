@@ -4,7 +4,7 @@ import time
 import json
 from datetime import datetime
 
-# --- ตั้งค่าหน้าตาเว็บไซต์ (ปรับเป็น wide เพื่อรองรับ Grid 3 คอลัมน์) ---
+# --- ตั้งค่าหน้าตาเว็บไซต์ ---
 st.set_page_config(
     page_title="Order Drink 🧋", 
     page_icon="🧋", 
@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่งฝั่งลูกค้า ---
+# --- CSS ตกแต่ง + บังคับ Grid บนมือถือ ---
 st.markdown(
     """
     <style>
@@ -44,50 +44,70 @@ st.markdown(
 
     .customer-header {
         background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
-        padding: 16px;
-        border-radius: 16px;
+        padding: 12px;
+        border-radius: 14px;
         color: #FFFFFF;
         text-align: center;
         box-shadow: 0 4px 15px rgba(110, 83, 65, 0.15);
-        margin-bottom: 16px;
+        margin-bottom: 12px;
     }
 
-    /* ตกแต่งการ์ดเมนูขนาดกะทัดรัด */
+    /* ⚡ บังคับ คอลัมน์ Streamlit ไม่ให้ยุบแถวบนมือถือ */
+    div[data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+
+    /* กำหนดขนาดคอลัมน์ให้แบ่งเท่าๆ กัน (3 เมนูต่อแถว) */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"] {
+        flex: 1 1 calc(33.333% - 8px) !important;
+        min-width: 100px !important; /* ป้องกันการเบียดจนแคบเกินไป */
+    }
+
+    /* ตกแต่งการ์ดเมนูขนาดกะทัดรัดสำหรับมือถือ */
     .menu-card {
         background-color: #FFFFFF;
-        padding: 12px;
-        border-radius: 14px;
+        padding: 8px;
+        border-radius: 12px;
         border: 1px solid #EADFD8;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-        margin-bottom: 12px;
-        height: 100%;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        text-align: center;
     }
 
+    /* ย่อขนาดตัวหนังสือปุ่มบนมือถือ */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
-        border-radius: 10px !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
+        font-size: 12px !important;
+        padding: 4px 8px !important;
         border: none !important;
     }
 
-    /* ซ่อน Label ของ Segmented Control ให้สะอาดตา */
+    /* ย่อขนาดตัวหนังสือ Checkbox */
+    div[data-testid="stCheckbox"] label span {
+        font-size: 11px !important;
+    }
+
     div[data-testid="stRadio"] > label {
         display: none !important;
     }
 
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0.5rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
+        padding-left: 0.4rem !important;
+        padding-right: 0.4rem !important;
     }
     </style>
     """, 
     unsafe_allow_html=True
 )
 
-PEARL_PRICE = 4.0  # ราคาไข่มุก
+PEARL_PRICE = 4.0  
 PEARL_COST = 1.0
 
 # ==========================================
@@ -97,84 +117,83 @@ LANGUAGES = {
     "🇹🇭 ไทย": {
         "header_title": "🧋 เมนูเครื่องดื่ม",
         "header_sub": "เลือกรอบสั่งและสแกนจ่ายได้ทันที",
-        "table_label": "📍 ระบุหมายเลขโต๊ะ / ชื่อของคุณ:",
+        "table_label": "📍 โต๊ะ/ชื่อ:",
         "table_default": "โต๊ะ 1",
-        "search_label": "🔍 ค้นหาเมนูด่วน...",
-        "search_placeholder": "พิมพ์ชื่อเมนูเพื่อกรอง...",
-        "select_menu": "👇 เลือกเมนูที่ต้องการ:",
+        "search_label": "🔍 ค้นหา:",
+        "search_placeholder": "ค้นหา...",
+        "select_menu": "👇 เลือกเมนู:",
         "price": "ราคา",
-        "baht": "บาท",
-        "add_pearl": "เพิ่มไข่มุก",
-        "btn_add": "➕ สั่งซื้อ",
-        "cart_title": "🛒 ตะกร้าสินค้าของคุณ",
-        "cart_empty": "ยังไม่มีรายการในตะกร้า เลือกเมนูด้านบนได้เลยครับ",
-        "total_price": "ราคารวมทั้งหมด",
-        "btn_order": "🚀 ยืนยันการสั่งซื้อ (ส่งเข้าครัว)",
-        "btn_clear": "🗑️ ล้างตะกร้า",
-        "err_table": "⚠️ กรุณาระบุหมายเลขโต๊ะหรือชื่อก่อนสั่งซื้อ",
-        "success_msg": "🎉 ส่งออเดอร์เข้าครัวเรียบร้อยแล้วครับ! กรุณารอรับเครื่องดื่ม",
+        "baht": "บ.",
+        "add_pearl": "+ไข่มุก",
+        "btn_add": "➕ สั่ง",
+        "cart_title": "🛒 ตะกร้าของคุณ",
+        "cart_empty": "ไม่มีรายการในตะกร้า",
+        "total_price": "ราคารวม",
+        "btn_order": "🚀 ยืนยันการสั่งซื้อ",
+        "btn_clear": "🗑️ ล้าง",
+        "err_table": "⚠️ กรุณาระบุหมายเลขโต๊ะหรือชื่อ",
+        "success_msg": "🎉 ส่งออเดอร์เข้าครัวแล้ว!",
         "toast_added": "เพิ่มลงตะกร้าแล้ว!"
     },
     "🇲🇲 Myanmar": {
         "header_title": "🧋 အဖျော်ယမကာ မီနူး",
-        "header_sub": "စိတ်ကြိုက်မှာယူပြီး ချက်ချင်း ငွေပေးချေနိုင်ပါသည်",
-        "table_label": "📍 စားပွဲနံပါတ် / သင့်အမည် ဖော်ပြပါ:",
+        "header_sub": "စိတ်ကြိုက်မှာယူပါ",
+        "table_label": "📍 စားပွဲ/အမည်:",
         "table_default": "စားပွဲ ၁",
-        "search_label": "🔍 မီနူးအမြန်ရှာရန်...",
-        "search_placeholder": "ရှာဖွေရန် မီနူးအမည်ရိုက်ထည့်ပါ...",
-        "select_menu": "👇 လိုချင်သော မီနူးကို ရွေးချယ်ပါ:",
-        "price": "ဈေးနှုန်း",
+        "search_label": "🔍 ရှာရန်:",
+        "search_placeholder": "ရှာရန်...",
+        "select_menu": "👇 မီနူးရွေးပါ:",
+        "price": "ဈေး",
         "baht": "ဘတ်",
-        "add_pearl": "ကျောက်ကျောထည့်မည်",
-        "btn_add": "➕ မှာယူမည်",
-        "cart_title": "🛒 သင့်၏ ဈေးဝယ်ခြင်းတောင်း",
-        "cart_empty": "ခြင်းတောင်းထဲတွင် မီနူးမရှိသေးပါ",
-        "total_price": "စုစုပေါင်း ကျသင့်ငွေ",
-        "btn_order": "🚀 မှာယူမှုကို အတည်ပြုမည်",
-        "btn_clear": "🗑️ ပယ်ဖျက်မည်",
-        "err_table": "⚠️ မမှာယူမီ စားပွဲနံပါတ် သို့မဟုတ် အမည် ထည့်ပါ",
-        "success_msg": "🎉 မှာယူမှု အောင်မြင်ပါသည်။ ခေတ္တစောင့်ဆိုင်းပေးပါ",
-        "toast_added": "ခြင်းတောင်းထဲသို့ ထည့်ပြီးပါပြီ!"
+        "add_pearl": "+ကျောက်ကျော",
+        "btn_add": "➕ မှာမည်",
+        "cart_title": "🛒 ခြင်းတောင်း",
+        "cart_empty": "ခြင်းတောင်းထဲတွင် မရှိပါ",
+        "total_price": "စုစုပေါင်း",
+        "btn_order": "🚀 မှာယူမည်",
+        "btn_clear": "🗑️ ပယ်ဖျက်",
+        "err_table": "⚠️ စားပွဲနံပါတ် ထည့်ပါ",
+        "success_msg": "🎉 မှာယူမှု အောင်မြင်ပါသည်!",
+        "toast_added": "ထည့်ပြီးပါပြီ!"
     },
-    "🇨🇳 中文 / EN": {
-        "header_title": "🧋 饮料菜单 Drink Menu",
-        "header_sub": "Select items and place your order",
-        "table_label": "📍 桌号/姓名 Table No. / Name:",
+    "🇨🇳 中文/EN": {
+        "header_title": "🧋 菜单 Menu",
+        "header_sub": "Select drinks to order",
+        "table_label": "📍 桌号 Table:",
         "table_default": "Table 1",
-        "search_label": "🔍 快速搜索 Search Menu...",
-        "search_placeholder": "Type menu name...",
-        "select_menu": "👇 选择您喜欢的饮料 Select drinks:",
-        "price": "价格 Price",
-        "baht": "泰铢 THB",
-        "add_pearl": "加珍珠 Add Pearls",
+        "search_label": "🔍 搜索 Search:",
+        "search_placeholder": "Search...",
+        "select_menu": "👇 选择饮料 Select:",
+        "price": "ราคา",
+        "baht": "฿",
+        "add_pearl": "+珍珠 Pearls",
         "btn_add": "➕ 点餐 Order",
-        "cart_title": "🛒 您的购物车 Shopping Cart",
-        "cart_empty": "购物车是空的 Cart is empty",
-        "total_price": "总计 Total Amount",
-        "btn_order": "🚀 确认下单 Confirm Order",
-        "btn_clear": "🗑️ 清空 Cart Clear",
-        "err_table": "⚠️ 请填写桌号或姓名 Please enter table/name",
-        "success_msg": "🎉 下单成功！请稍等 Order submitted successfully!",
-        "toast_added": "已加入购物车 Added to cart!"
+        "cart_title": "🛒 购物车 Cart",
+        "cart_empty": "购物车为空 Empty",
+        "total_price": "总计 Total",
+        "btn_order": "🚀 确认下单 Confirm",
+        "btn_clear": "🗑️ 清空",
+        "err_table": "⚠️ 请填写桌号 Enter table",
+        "success_msg": "🎉 下单成功 Order Sent!",
+        "toast_added": "已加入 Added!"
     }
 }
 
-# Dictionary แปลชื่อเมนูภาษาไทย -> พม่า & จีน/อังกฤษ
 MENU_TRANSLATIONS = {
-    "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文 / EN": "冰红茶 Ice Black Tea"},
-    "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文 / EN": "柠檬茶 Lemon Tea"},
-    "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文 / EN": "柠檬绿茶 Lemon Green Tea"},
-    "ชาเขียวใส": {"🇲🇲 Myanmar": "လက်ဖက်စိမ်း", "🇨🇳 中文 / EN": "茉莉绿茶 Green Tea"},
-    "โอเลี้ยง": {"🇲🇲 Myanmar": "ကော်ဖီနက်အေး", "🇨🇳 中文 / EN": "泰式传统黑咖啡 Oliang Coffee"},
-    "โกโก้": {"🇲🇲 Myanmar": "ကိုကိုး", "🇨🇳 中文 / EN": "可可 Cocoa"},
-    "โอวัลติน": {"🇲🇲 Myanmar": "အိုဗာတင်း", "🇨🇳 中文 / EN": "阿华田 Ovaltine"},
-    "เนสกาแฟ": {"🇲🇲 Myanmar": "နက်စ်ကဖေး", "🇨🇳 中文 / EN": "雀巢咖啡 Nescafe"},
-    "กาแฟโบราณ": {"🇲🇲 Myanmar": "ရှေးဟောင်း ကော်ဖီ", "🇨🇳 中文 / EN": "泰式古早味咖啡 Ancient Coffee"},
-    "นมชมพู": {"🇲🇲 Myanmar": "နို့ဆီ ပန်းရောင်", "🇨🇳 中文 / EN": "粉红奶茶 Pink Milk"},
-    "ชาไต้หวัน": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည်", "🇨🇳 中文 / EN": "台湾奶茶 Taiwan Milk Tea"},
-    "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文 / EN": "泰式奶茶 Thai Milk Tea"},
-    "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文 / EN": "泰式绿奶茶 Thai Green Milk Tea"},
-    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文 / EN": "香蕉鲜奶 Banana Fresh Milk"}
+    "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文/EN": "冰红茶 Tea"},
+    "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文/EN": "柠檬茶 Lemon Tea"},
+    "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "柠檬绿 Lemon Green"},
+    "ชาเขียวใส": {"🇲🇲 Myanmar": "လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "绿茶 Green Tea"},
+    "โอเลี้ยง": {"🇲🇲 Myanmar": "ကော်ဖီနက်အေး", "🇨🇳 中文/EN": "黑咖啡 Black Coffee"},
+    "โกโก้": {"🇲🇲 Myanmar": "ကိုကိုး", "🇨🇳 中文/EN": "可可 Cocoa"},
+    "โอวัลติน": {"🇲🇲 Myanmar": "အိုဗာတင်း", "🇨🇳 中文/EN": "阿华田 Ovaltine"},
+    "เนสกาแฟ": {"🇲🇲 Myanmar": "နက်စ်ကဖေး", "🇨🇳 中文/EN": "雀巢 Nescafe"},
+    "กาแฟโบราณ": {"🇲🇲 Myanmar": "ရှေးဟောင်း ကော်ဖီ", "🇨🇳 中文/EN": "古早咖啡 Thai Coffee"},
+    "นมชมพู": {"🇲🇲 Myanmar": "နို့ဆီ ပန်းရောင်", "🇨🇳 中文/EN": "粉红奶 Pink Milk"},
+    "ชาไต้หวัน": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည်", "🇨🇳 中文/EN": "台湾奶茶 Taiwan Tea"},
+    "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "泰奶 Thai Milk Tea"},
+    "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "绿奶茶 Green Milk"},
+    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文/EN": "香蕉鲜奶 Banana Milk"}
 }
 
 # ==========================================
@@ -196,38 +215,33 @@ def get_menu_from_db():
     except Exception as e:
         return {}
 
-# --- จัดการ Session ตะกร้าสินค้า ---
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-# --- 🔘 แถบเลือกภาษาและข้อมูลส่วนหัว ---
-col_head1, col_head2 = st.columns([1, 2])
-
-with col_head1:
-    selected_lang = st.segmented_control(
-        "Language",
-        options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文 / EN"],
-        default="🇹🇭 ไทย",
-        key="lang_segmented"
-    )
+# --- 🔘 เลือกภาษา ---
+selected_lang = st.segmented_control(
+    "Language",
+    options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文/EN"],
+    default="🇹🇭 ไทย",
+    key="lang_segmented"
+)
 
 if not selected_lang:
     selected_lang = "🇹🇭 ไทย"
 
 t = LANGUAGES[selected_lang]
 
-# --- ส่วนหัวของเว็บ ---
+# --- Header ---
 st.markdown(
     f"""
     <div class="customer-header">
-        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">{t['header_title']}</h2>
-        <p style="margin: 2px 0 0 0; font-size: 12px; opacity: 0.90;">{t['header_sub']}</p>
+        <h3 style="margin: 0; font-size: 18px; font-weight: 700;">{t['header_title']}</h3>
     </div>
     """, 
     unsafe_allow_html=True
 )
 
-col_top1, col_top2 = st.columns([1, 1])
+col_top1, col_top2 = st.columns(2)
 with col_top1:
     table_number = st.text_input(t['table_label'], value=t['table_default'], key="table_no_input")
 with col_top2:
@@ -235,27 +249,24 @@ with col_top2:
 
 current_menu = get_menu_from_db()
 
-st.write(f"**{t['select_menu']}**")
-
 if not current_menu:
-    st.warning("⏳ Loading menu...")
+    st.warning("⏳ Loading...")
 else:
-    # กรองรายการเมนูตามคำค้นหา
     filtered_items = []
     for item_name_th, info in current_menu.items():
         display_name = item_name_th
-        if selected_lang in ["🇲🇲 Myanmar", "🇨🇳 中文 / EN"]:
+        if selected_lang in ["🇲🇲 Myanmar", "🇨🇳 中文/EN"]:
             translated = MENU_TRANSLATIONS.get(item_name_th, {}).get(selected_lang)
             if translated:
-                display_name = f"{translated} ({item_name_th})"
+                display_name = f"{translated}"
 
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
     # ==========================================
-    # 🍱 แสดงผลเมนูแบบ Grid (1 บรรทัด = 3 เมนู)
+    # 🍱 บังคับแสดงผล 3 เมนูต่อบรรทัดบนมือถือ
     # ==========================================
-    NUM_COLS = 3  # กำหนดจำนวนคอลัมน์ต่อบรรทัด
+    NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
@@ -265,9 +276,15 @@ else:
                 cost = info["cost"]
 
                 with cols[j]:
-                    st.markdown('<div class="menu-card">', unsafe_allow_html=True)
-                    st.markdown(f"#### **{display_name}**")
-                    st.markdown(f"💰 **{t['price']}: {price:.0f} {t['baht']}**")
+                    st.markdown(
+                        f"""
+                        <div class="menu-card">
+                            <div style="font-weight: bold; font-size: 13px; height: 36px; overflow: hidden; line-height: 1.2;">{display_name}</div>
+                            <div style="color: #8C6D58; font-weight: bold; font-size: 12px; margin: 4px 0;">{price:.0f} {t['baht']}</div>
+                        </div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
                     
                     add_pearl = st.checkbox(f"{t['add_pearl']} (+{PEARL_PRICE:.0f}฿)", key=f"pearl_{item_name_th}")
                     
@@ -288,10 +305,8 @@ else:
                         time.sleep(0.3)
                         st.rerun()
 
-                    st.markdown('</div>', unsafe_allow_html=True)
-
 # ==========================================
-# 🛒 ตะกร้าสินค้าและการส่งออเดอร์
+# 🛒 ตะกร้าสินค้า
 # ==========================================
 st.divider()
 st.subheader(t['cart_title'])
@@ -303,7 +318,7 @@ else:
     total_cost = 0
 
     for idx, cart_item in enumerate(st.session_state.cart):
-        c1, c2, c3 = st.columns([4, 2, 1])
+        c1, c2, c3 = st.columns([3, 2, 1])
         c1.write(f"**{cart_item.get('display_name', cart_item['name'])}**")
         c2.write(f"{cart_item['price']:.0f} {t['baht']}")
         if c3.button("❌", key=f"remove_cart_{idx}"):
@@ -313,9 +328,9 @@ else:
         total_price += cart_item['price']
         total_cost += cart_item['cost']
 
-    st.markdown(f"### 💰 **{t['total_price']}: {total_price:.0f} {t['baht']}**")
+    st.markdown(f"#### 💰 {t['total_price']}: {total_price:.0f} {t['baht']}")
 
-    col_order_btn, col_clear_btn = st.columns([3, 1])
+    col_order_btn, col_clear_btn = st.columns([2, 1])
 
     with col_order_btn:
         if st.button(t['btn_order'], type="primary", use_container_width=True):
