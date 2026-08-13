@@ -367,7 +367,7 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # 🌟 เปลี่ยนเป็น st.multiselect เลือกท็อปปิ้งได้มากกว่า 1 รายการต่อแก้ว
+                    # 🌟 เลือกท็อปปิ้งได้มากกว่า 1 รายการต่อแก้ว
                     selected_tps = st.multiselect(
                         t['topping_label'], 
                         options=topping_options, 
@@ -380,7 +380,7 @@ else:
                         total_tp_cost = 0.0
                         selected_tp_names = []
 
-                        # วนลูปคำนวณราคาท็อปปิ้งทุกตัวที่ถูกเลือก
+                        # วนลูปคำนวณราคาท็อปปิ้ง
                         if selected_tps:
                             for selected_tp in selected_tps:
                                 raw_tp_name = selected_tp.split(" (+")[0]
@@ -402,6 +402,10 @@ else:
                             "price": final_price,
                             "cost": final_cost
                         })
+
+                        # ⚡ ล้างค่าตัวเลือกท็อปปิ้งที่เลือกไว้หลังกดสั่ง ให้กลับมาเป็นช่องว่าง
+                        st.session_state[f"tp_{item_name_th}"] = []
+
                         st.toast(f"{t['toast_added']}", icon="🛒")
                         time.sleep(0.2)
                         st.rerun()
