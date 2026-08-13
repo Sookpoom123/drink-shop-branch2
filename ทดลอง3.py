@@ -572,7 +572,7 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที ---
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที (แก้ไขปัญหาขึ้นไม่ใส่ท็อปปิ้งซ้ำ) ---
 @st.fragment(run_every="5s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
@@ -590,21 +590,24 @@ def render_kitchen_orders():
             st.warning(f"⚠️ มีออเดอร์ค้างทำอยู่ **{len(pending_orders)}** รายการ")
             for order in pending_orders:
                 order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
-                items = json.loads(items_json)
+                
+                # แปลงข้อมูล JSON เป็น List
+                items = json.loads(items_json) if isinstance(items_json, str) else items_json
                 
                 with st.container(border=True):
                     col_o1, col_o2 = st.columns([3, 1])
                     with col_o1:
                         st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
                         item_summary_text = []
+                        
                         for item in items:
-                            topping = item.get('topping', 'ไม่ใส่ท็อปปิ้ง')
-                            topping_price = item.get('topping_price', 0)
+                            # ⚡ ดึงชื่อสินค้าแบบรวมท็อปปิ้งจาก display_name หรือ name
+                            item_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
+                            item_price = item.get('price', 0.0)
                             
-                            topping_str = f" 🧋 [{topping}] (+{topping_price}บ.)" if topping and topping != "ไม่ใส่ท็อปปิ้ง" else " (ไม่ใส่ท็อปปิ้ง)"
-                            
-                            st.write(f"- **{item['name']}**{topping_str} ({item['price']} บาท)")
-                            item_summary_text.append(f"{item['name']}{topping_str}")
+                            # แสดงผลเฉพาะชื่อสินค้า (ตัดการแสดงผล '(ไม่ใส่ท็อปปิ้ง)' ที่ซ้ำซ้อนออก)
+                            st.write(f"- **{item_display}** ({item_price} บาท)")
+                            item_summary_text.append(item_display)
                         
                         st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
 
@@ -613,7 +616,7 @@ def render_kitchen_orders():
                             cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
                             
                             combined_item_names = ", ".join(item_summary_text)
-                            total_profit = float(o_total_price) - float(o_total_cost)
+                            total_profit = float(o_total_price) - float(o_total_cost) if o_total_cost else float(o_total_price)
                             
                             cur.execute('''
                                 INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
