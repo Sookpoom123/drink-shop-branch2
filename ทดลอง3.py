@@ -118,8 +118,6 @@ def load_app_styles():
 load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
-TOPPING_PRICE = 5.0
-TOPPING_COST = 1.0
 
 # --- รายการเมนูใหม่ 46 รายการจากป้ายหน้าร้าน ---
 DEFAULT_MENU = {
@@ -182,6 +180,19 @@ DEFAULT_MENU = {
     "มัทฉะนมสดปั่น": {"cost": 18.0, "price": 44},
 }
 
+# --- รายการท็อปปิ้งจากรูปภาพป้ายหน้าร้าน ---
+DEFAULT_TOPPINGS = {
+    # ท็อปปิ้ง 5 บาท
+    "ไข่มุกสีดำ": 5.0,
+    "ไข่มุกสีทอง": 5.0,
+    "ฟรุ้ตสลัด": 5.0,
+    "บุกนมสด": 5.0,
+    # ท็อปปิ้ง 10 บาท
+    "บุกเฉาก๊วย": 10.0,
+    "บุกน้ำผึ้ง": 10.0,
+    "บุกบราวน์ชูการ์": 10.0
+}
+
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
@@ -236,12 +247,28 @@ def init_db():
             price REAL
         )
     ''')
+
+    # 5. ตาราง toppings
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS toppings (
+            name TEXT PRIMARY KEY,
+            price REAL
+        )
+    ''')
     
+    # เติมข้อมูลเมนูเริ่มต้น
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
         for name, info in DEFAULT_MENU.items():
             c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
                         (name, info['cost'], info['price']))
+
+    # เติมข้อมูลท็อปปิ้งเริ่มต้น
+    c.execute("SELECT COUNT(*) FROM toppings")
+    if c.fetchone()[0] == 0:
+        for name, price in DEFAULT_TOPPINGS.items():
+            c.execute("INSERT INTO toppings (name, price) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING",
+                        (name, price))
             
     conn.commit()
     conn.close()
@@ -256,6 +283,20 @@ def reset_and_sync_all_menu():
             VALUES (%s, %s, %s)
             ON CONFLICT (name) DO UPDATE SET cost = EXCLUDED.cost, price = EXCLUDED.price
         """, (name, info['cost'], info['price']))
+    conn.commit()
+    conn.close()
+    st.cache_data.clear()
+
+def reset_and_sync_toppings():
+    """ฟังก์ชั่นสำหรับซิงค์ท็อปปิ้งจากป้ายร้านเข้า Database"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    for name, price in DEFAULT_TOPPINGS.items():
+        c.execute("""
+            INSERT INTO toppings (name, price)
+            VALUES (%s, %s)
+            ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
+        """, (name, price))
     conn.commit()
     conn.close()
     st.cache_data.clear()
@@ -299,6 +340,18 @@ def get_menu_from_db():
         menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2])}
     return menu_dict
 
+@st.cache_data(ttl=10)
+def get_toppings_from_db():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
+    rows = c.fetchall()
+    conn.close()
+    toppings_dict = {}
+    for r in rows:
+        toppings_dict[r[0]] = float(r[1])
+    return toppings_dict
+
 def save_menu_item_db(name, cost, price):
     conn = get_db_connection()
     c = conn.cursor()
@@ -311,10 +364,30 @@ def save_menu_item_db(name, cost, price):
     conn.close()
     st.cache_data.clear()
 
+def save_topping_db(name, price):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("""
+        INSERT INTO toppings (name, price) 
+        VALUES (%s, %s)
+        ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
+    """, (name, price))
+    conn.commit()
+    conn.close()
+    st.cache_data.clear()
+
 def delete_menu_item_db(name):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("DELETE FROM menu_items WHERE name = %s", (name,))
+    conn.commit()
+    conn.close()
+    st.cache_data.clear()
+
+def delete_topping_db(name):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM toppings WHERE name = %s", (name,))
     conn.commit()
     conn.close()
     st.cache_data.clear()
@@ -471,6 +544,20 @@ def confirm_delete_menu_dialog(menu_name):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_menu"):
             st.rerun()
 
+@st.dialog("⚠️ ยืนยันการลบท็อปปิ้ง")
+def confirm_delete_topping_dialog(topping_name):
+    st.write(f"คุณต้องการลบท็อปปิ้ง **{topping_name}** ออกจากระบบใช่หรือไม่?")
+    col_confirm, col_cancel = st.columns(2)
+    with col_confirm:
+        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_topping"):
+            delete_topping_db(topping_name)
+            st.success(f"ลบท็อปปิ้ง '{topping_name}' เรียบร้อย!")
+            time.sleep(0.5)
+            st.rerun()
+    with col_cancel:
+        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_topping"):
+            st.rerun()
+
 @st.dialog("⚠️ ยืนยันการลบบัญชีสมาชิก")
 def confirm_delete_user_dialog(username):
     st.write(f"คุณต้องการลบบัญชีผู้ใช้ **{username}** ออกจากระบบใช่หรือไม่?")
@@ -511,9 +598,10 @@ def render_kitchen_orders():
                         st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
                         item_summary_text = []
                         for item in items:
-                            # ตรวจสอบการเลือกท็อปปิ้ง
                             topping = item.get('topping', 'ไม่ใส่ท็อปปิ้ง')
-                            topping_str = f" 🧋 [{topping}]" if topping and topping != "ไม่ใส่ท็อปปิ้ง" else " (ไม่ใส่ท็อปปิ้ง)"
+                            topping_price = item.get('topping_price', 0)
+                            
+                            topping_str = f" 🧋 [{topping}] (+{topping_price}บ.)" if topping and topping != "ไม่ใส่ท็อปปิ้ง" else " (ไม่ใส่ท็อปปิ้ง)"
                             
                             st.write(f"- **{item['name']}**{topping_str} ({item['price']} บาท)")
                             item_summary_text.append(f"{item['name']}{topping_str}")
@@ -583,6 +671,7 @@ if st.session_state.logged_in:
     update_user_activity(st.session_state.username)
 
 current_menu = get_menu_from_db()
+current_toppings = get_toppings_from_db()
 
 # ==========================================
 # 1. หน้าเข้าสู่ระบบ / สมัครสมาชิก
@@ -703,14 +792,14 @@ else:
     # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
     render_kitchen_orders()
 
-    # --- ส่วนที่ 2: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
+    # --- ส่วนที่ 2: ตารางราคาเมนู & ท็อปปิ้ง ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
     if st.session_state.role == "admin":
-        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** แล้วกดบันทึกได้เลย (ลูกค้าจะเห็นราคาใหม่ทันที)")
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** แล้วกดบันทึกได้เลย")
     else:
-        st.caption("ℹ️ ตารางดูราคาหน้าร้าน (การแก้ไขราคาต้องใช้สิทธิ์ Admin)")
+        st.caption("ℹ️ ตารางดูราคาหน้าร้าน")
 
     search_top_table = st.text_input("🔍 ค้นหาราคา...", "", key="m_search_top_table", placeholder="พิมพ์ชื่อเมนูที่นี่...")
 
@@ -722,28 +811,24 @@ else:
                     "เมนู": item,
                     "ต้นทุน": float(info['cost']),
                     "ราคาปกติ": float(info['price']),
-                    "กำไรปกติ": float(round(info['price'] - info['cost'], 2)),
-                    "+ใส่ท็อปปิ้ง (+5บ.)": float(info['price'] + TOPPING_PRICE),
-                    "กำไร+ท็อปปิ้ง": float(round((info['price'] + TOPPING_PRICE) - (info['cost'] + TOPPING_COST), 2))
+                    "กำไรปกติ": float(round(info['price'] - info['cost'], 2))
                 })
         
         df_menu_view = pd.DataFrame(top_menu_list)
 
-        disabled_cols = ["เมนู", "กำไรปกติ", "+ใส่ท็อปปิ้ง (+5บ.)", "กำไร+ท็อปปิ้ง"]
+        disabled_cols = ["เมนู", "กำไรปกติ"]
         if st.session_state.role != "admin":
             disabled_cols = True
 
         edited_df = st.data_editor(
             df_menu_view,
             use_container_width=True,
-            height=300,
+            height=250,
             disabled=disabled_cols,
             column_config={
                 "ต้นทุน": st.column_config.NumberColumn("ต้นทุน (บ.)", format="%.2f"),
                 "ราคาปกติ": st.column_config.NumberColumn("ราคาปกติ (บ.)", format="%.0f"),
-                "กำไรปกติ": st.column_config.NumberColumn("กำไรปกติ (บ.)", format="%.1f"),
-                "+ใส่ท็อปปิ้ง (+5บ.)": st.column_config.NumberColumn("+ใส่ท็อปปิ้ง (+5บ.)", format="%.0f"),
-                "กำไร+ท็อปปิ้ง": st.column_config.NumberColumn("กำไร+ท็อปปิ้ง", format="%.1f")
+                "กำไรปกติ": st.column_config.NumberColumn("กำไรปกติ (บ.)", format="%.1f")
             },
             hide_index=True,
             key="direct_menu_editor"
@@ -765,11 +850,19 @@ else:
                         updated_count += 1
                 
                 if updated_count > 0:
-                    st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ! (ฝั่งลูกค้าจะอัปเดตทันที)")
+                    st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
                     time.sleep(0.5)
                     st.rerun()
                 else:
                     st.info("ไม่มีรายการที่เปลี่ยนแปลง")
+
+    st.write("---")
+    st.subheader("🧋 รายการท็อปปิ้ง (Topping)")
+    if current_toppings:
+        topping_list = [{"ท็อปปิ้ง": k, "ราคาบวกเพิ่ม (บาท)": f"+{v:.0f} บ."} for k, v in current_toppings.items()]
+        st.dataframe(pd.DataFrame(topping_list), use_container_width=True, hide_index=True)
+    else:
+        st.info("ยังไม่มีข้อมูลท็อปปิ้งในระบบ")
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -899,11 +992,12 @@ else:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)
+    # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู, ท็อปปิ้ง & สมาชิก)
     # ==========================================
-    with st.expander("⚙️ **จัดการระบบ (เพิ่ม/ลบเมนู & สมาชิก)**", expanded=False):
-        tab_add_menu, tab_del_menu, tab_users = st.tabs(["➕ เพิ่ม/ซิงค์เมนู", "🗑️ ลบเมนู", "👥 สมาชิก"])
+    with st.expander("⚙️ **จัดการระบบ (เมนู / ท็อปปิ้ง / สมาชิก)**", expanded=False):
+        tab_add_menu, tab_del_menu, tab_topping, tab_users = st.tabs(["➕ เพิ่ม/ซิงค์เมนู", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "👥 สมาชิก"])
 
+        # TAB 1: เพิ่ม/ซิงค์เมนู
         with tab_add_menu:
             if st.session_state.role == "admin":
                 st.write("🔄 **อัปเดตเมนูใหม่ทั้งหมด (46 รายการจากป้ายร้าน):**")
@@ -922,11 +1016,12 @@ else:
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
                     save_menu_item_db(new_name.strip(), new_cost, new_price)
-                    st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อย! (ลูกค้าเลือกสั่งได้ทันที)")
+                    st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อย!")
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
 
+        # TAB 2: ลบเมนู
         with tab_del_menu:
             if st.session_state.role == "admin":
                 if len(current_menu) > 0:
@@ -938,6 +1033,40 @@ else:
             else:
                 st.error("🔒 สิทธิ์ไม่ถูกต้อง: เฉพาะ Admin เท่านั้นที่สามารถลบเมนูได้")
 
+        # TAB 3: จัดการท็อปปิ้ง
+        with tab_topping:
+            if st.session_state.role == "admin":
+                st.write("🔄 **รีเซ็ต/ซิงค์ท็อปปิ้งจากป้ายร้าน:**")
+                if st.button("⚡ ซิงค์ท็อปปิ้งจากป้ายร้าน (5บ./10บ.) เข้า Database", use_container_width=True, key="btn_sync_toppings"):
+                    reset_and_sync_toppings()
+                    st.success("🎉 ซิงค์ท็อปปิ้งเรียบร้อยแล้ว!")
+                    time.sleep(0.5)
+                    st.rerun()
+
+                st.divider()
+                st.write("➕ **เพิ่มท็อปปิ้งใหม่:**")
+                t_name = st.text_input("ชื่อท็อปปิ้ง", key="t_add_name")
+                t_price = st.number_input("ราคาบวกเพิ่ม (บาท)", min_value=0.0, value=5.0, step=1.0, key="t_add_price")
+                if st.button("💾 บันทึกท็อปปิ้ง", use_container_width=True, key="btn_save_t"):
+                    if t_name.strip() != "":
+                        save_topping_db(t_name.strip(), t_price)
+                        st.success(f"บันทึกท็อปปิ้ง '{t_name}' เรียบร้อย!")
+                        st.rerun()
+                    else:
+                        st.warning("กรุณากรอกชื่อท็อปปิ้ง")
+
+                st.divider()
+                st.write("🗑️ **ลบท็อปปิ้ง:**")
+                if current_toppings:
+                    del_t_name = st.selectbox("เลือกท็อปปิ้งที่ต้องการลบ", list(current_toppings.keys()), key="t_del_select")
+                    if st.button("❌ ลบท็อปปิ้งนี้", use_container_width=True, key="btn_del_t"):
+                        confirm_delete_topping_dialog(del_t_name)
+                else:
+                    st.info("ไม่มีท็อปปิ้งให้ลบ")
+            else:
+                st.error("🔒 เฉพาะ Admin เท่านั้นที่จัดการท็อปปิ้งได้")
+
+        # TAB 4: จัดการสมาชิก
         with tab_users:
             if st.session_state.role == "admin":
                 st.write("🟢 **สถานะผู้ใช้งาน**")
