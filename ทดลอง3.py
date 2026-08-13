@@ -231,6 +231,7 @@ def init_db():
             total_price REAL,
             total_cost REAL,
             total_profit REAL,
+            seller_name TEXT,
             payment_method TEXT
         )
     ''')
@@ -417,6 +418,7 @@ def get_sales():
     df = pd.read_sql_query("SELECT * FROM sales", conn)
     conn.close()
     return df
+
 def delete_sale_by_id(record_id):
     conn = get_db_connection()
     c = conn.cursor()
@@ -813,50 +815,51 @@ else:
                 unsafe_allow_html=True
             )
 
-if st.button("✅ บันทึกการขาย", use_container_width=True):
-    item_name = f"{selected_item} (+ไข่มุก)" if add_pearl else selected_item
-    add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), "admin", payment_method)
-    st.session_state.last_sale_msg = f"🎉 บันทึกสำเร็จ: {item_name} ({qty} แก้ว) รวม {total_price:.0f} บาท"
-    st.session_state.mobile_qty = 1
-    st.rerun()
+            if st.button("✅ บันทึกการขาย", use_container_width=True):
+                item_name = f"{selected_item} (+ไข่มุก)" if add_pearl else selected_item
+                add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), st.session_state.username, payment_method)
+                st.session_state.last_sale_msg = f"🎉 บันทึกสำเร็จ: {item_name} ({qty} แก้ว) รวม {total_price:.0f} บาท"
+                st.session_state.mobile_qty = 1
+                st.rerun()
 
-if "last_sale_msg" in st.session_state:
-    st.success(st.session_state.last_sale_msg)
+    if "last_sale_msg" in st.session_state:
+        st.success(st.session_state.last_sale_msg)
 
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- ส่วนที่ 2: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
-df_all = get_sales()
+    # --- ส่วนที่ 2: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
+    df_all = get_sales()
 
-if not df_all.empty and 'date' in df_all.columns:
-    df_all['date'] = pd.to_datetime(df_all['date'])
-    
-    today_str = datetime.today().strftime('%Y-%m-%d')
-    current_month = datetime.today().month
-    current_year = datetime.today().year
+    if not df_all.empty and 'sale_date' in df_all.columns:
+        df_all['date_dt'] = pd.to_datetime(df_all['sale_date'], errors='coerce')
+        
+        today_str = datetime.today().strftime('%Y-%m-%d')
+        current_month = datetime.today().month
+        current_year = datetime.today().year
 
-    # คำนวณยอดขายวันนี้
-    df_today = df_all[df_all['date'].dt.strftime('%Y-%m-%d') == today_str]
-    today_sales = df_today['total_price'].sum() if not df_today.empty else 0
-    today_cups = df_today['qty'].sum() if not df_today.empty else 0
+        # คำนวณยอดขายวันนี้
+        df_today = df_all[df_all['sale_date'] == today_str]
+        today_sales = df_today['total_price'].sum() if not df_today.empty else 0
+        today_cups = df_today['qty'].sum() if not df_today.empty else 0
 
-    # คำนวณยอดขายเดือนนี้
-    df_month = df_all[(df_all['date'].dt.month == current_month) & (df_all['date'].dt.year == current_year)]
-    month_sales = df_month['total_price'].sum() if not df_month.empty else 0
-    month_cups = df_month['qty'].sum() if not df_month.empty else 0
-else:
-    today_sales, today_cups, month_sales, month_cups = 0, 0, 0, 0
+        # คำนวณยอดขายเดือนนี้
+        df_month = df_all[(df_all['date_dt'].dt.month == current_month) & (df_all['date_dt'].dt.year == current_year)]
+        month_sales = df_month['total_price'].sum() if not df_month.empty else 0
+        month_cups = df_month['qty'].sum() if not df_month.empty else 0
+    else:
+        today_sales, today_cups, month_sales, month_cups = 0, 0, 0, 0
 
-# แสดงผลการ์ดสรุปยอดขายบนหน้าจอ
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="📅 ยอดขายวันนี้", value=f"{today_sales:,.0f} บาท", delta=f"{today_cups:,} แก้ว")
-with col2:
-    st.metric(label="📊 ยอดขายเดือนนี้", value=f"{month_sales:,.0f} บาท", delta=f"{month_cups:,} แก้ว")
+    # แสดงผลการ์ดสรุปยอดขายบนหน้าจอ
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric(label="📅 ยอดขายวันนี้", value=f"{today_sales:,.0f} บาท", delta=f"{today_cups:,} แก้ว")
+    with col2:
+        st.metric(label="📊 ยอดขายเดือนนี้", value=f"{month_sales:,.0f} บาท", delta=f"{month_cups:,} แก้ว")
 
-st.divider()
+    st.divider()
 
-if not df_all.empty:
+    st.markdown('<div class="pos-card">', unsafe_allow_html=True)
+    if not df_all.empty:
         df_day = df_all[df_all["sale_date"] == str(selected_date)]
         
         if not df_day.empty:
