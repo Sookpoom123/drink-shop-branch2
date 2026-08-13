@@ -3,23 +3,29 @@ import hashlib
 import psycopg2
 import streamlit as st
 import time
+import json
 from datetime import datetime, date
 import pandas as pd
+from streamlit_autorefresh import st_autorefresh
 
 # --- ตั้งค่าหน้าตาเว็บไซต์รองรับ Mobile Screen ---
 st.set_page_config(
-    page_title="ร้านน้ำสร้างตัว 🧋", 
+    page_title="ร้านน้ำสร้างตัว 🧋 (หลังบ้าน/POS)", 
     page_icon="🧋", 
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
+# --- รีเฟรชหน้าเว็บอัตโนมัติทุกๆ 5 วินาที เพื่อเช็คออเดอร์เข้าครัว ---
+st_autorefresh(interval=5000, key="kitchen_autorefresh")
+
 def get_db_connection():
-    db_url = st.secrets["postgres"]["db_url"]
+    # ดึงค่า URL จาก Secrets
+    db_url = st.secrets["postgres"]["url"]
     return psycopg2.connect(db_url)
 
 # ==========================================
-# 🎨 CSS Optimization (ใช้ Cache เพื่อให้หน้าเว็บลื่นไหล)
+# 🎨 CSS Optimization
 # ==========================================
 @st.cache_resource
 def load_app_styles():
@@ -223,6 +229,8 @@ def make_hashes(password):
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
+    
+    # 1. ตาราง sales
     c.execute('''
         CREATE TABLE IF NOT EXISTS sales (
             id SERIAL PRIMARY KEY,
@@ -236,6 +244,8 @@ def init_db():
             payment_method TEXT
         )
     ''')
+    
+    # 2. ตาราง users
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
@@ -245,18 +255,21 @@ def init_db():
             profile_img TEXT
         )
     ''')
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN last_active TEXT")
-        conn.commit()
-    except Exception:
-        conn.rollback()
+    
+    # 3. ตาราง orders (สำหรับแอปฝั่งลูกค้า)
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            id SERIAL PRIMARY KEY,
+            table_number VARCHAR(50),
+            items_json TEXT,
+            total_price NUMERIC(10, 2),
+            total_cost NUMERIC(10, 2),
+            status VARCHAR(20) DEFAULT 'pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
 
-    try:
-        c.execute("ALTER TABLE users ADD COLUMN profile_img TEXT")
-        conn.commit()
-    except Exception:
-        conn.rollback()
-
+    # 4. ตาราง menu_items
     c.execute('''
         CREATE TABLE IF NOT EXISTS menu_items (
             name TEXT PRIMARY KEY,
@@ -264,11 +277,13 @@ def init_db():
             price REAL
         )
     ''')
+    
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
         for name, info in DEFAULT_MENU.items():
             c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
                         (name, info['cost'], info['price']))
+            
     conn.commit()
     conn.close()
 
@@ -299,16 +314,16 @@ def get_user_profile_img(username):
         return row[0]
     return None
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=10)
 def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT name, cost, price FROM menu_items")
+    c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
     rows = c.fetchall()
     conn.close()
     menu_dict = {}
     for r in rows:
-        menu_dict[r[0]] = {"cost": r[1], "price": r[2]}
+        menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2])}
     return menu_dict
 
 def save_menu_item_db(name, cost, price):
@@ -385,7 +400,7 @@ def get_all_users_with_status():
         status_str = "🟢 Online" if is_online else "⚪ Offline"
         users_status.append({
             "ผู้ใช้งาน": username,
-            "สิทธิ์": role.upper(),
+            "สิทธิ์": role.upper() if role else "USER",
             "สถานะ": status_str,
             "ใช้งานล่าสุด": last_active if last_active else "ไม่ระบุ"
         })
@@ -416,7 +431,7 @@ def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, s
     conn.close()
     st.cache_data.clear()
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def get_sales():
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM sales", conn)
@@ -557,7 +572,7 @@ if not st.session_state.logged_in:
         """
         <div class="mobile-header">
             <h2 style="margin: 0; font-size: 24px; font-weight: 700;">🧋 ร้านน้ำสร้างตัว</h2>
-            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.90;">ระบบบันทึกการขาย Mobile POS</p>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.90;">ระบบบันทึกการขาย Mobile POS & ครัว</p>
         </div>
         """, 
         unsafe_allow_html=True
@@ -631,7 +646,7 @@ if not st.session_state.logged_in:
     st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 2. หน้าขายสินค้า Mobile Cashier POS
+# 2. หน้าขายสินค้า Mobile Cashier POS + แสดงออเดอร์จากฝั่งลูกค้า
 # ==========================================
 else:
     user_img = get_user_profile_img(st.session_state.username)
@@ -664,12 +679,67 @@ else:
             st.session_state.clear()
             st.rerun()
 
+    # --- ส่วนที่เพิ่มใหม่: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า ---
+    st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
+    st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
+        pending_orders = cur.fetchall()
+
+        if not pending_orders:
+            st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
+        else:
+            st.warning(f"⚠️ มีออเดอร์ค้างทำอยู่ **{len(pending_orders)}** รายการ")
+            for order in pending_orders:
+                order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
+                items = json.loads(items_json)
+                
+                with st.container(border=True):
+                    col_o1, col_o2 = st.columns([3, 1])
+                    with col_o1:
+                        st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
+                        item_summary_text = []
+                        for item in items:
+                            st.write(f"- **{item['name']}** ({item['price']} บาท)")
+                            item_summary_text.append(f"{item['name']}")
+                        
+                        st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
+
+                    with col_o2:
+                        if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
+                            # 1. เปลี่ยนสถานะออเดอร์เป็น completed
+                            cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
+                            
+                            # 2. บันทึกลงตารางยอดขาย (sales) หลังบ้านให้อัตโนมัติ
+                            combined_item_names = ", ".join(item_summary_text)
+                            total_profit = float(o_total_price) - float(o_total_cost)
+                            
+                            cur.execute('''
+                                INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            ''', (str(date.today()), f"📱 {table_no}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
+                            
+                            conn.commit()
+                            st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
+                            time.sleep(0.5)
+                            st.rerun()
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการโหลดออเดอร์: {e}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
     # --- ส่วนที่ 0: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    st.subheader("📋 ตารางราคาเมนู")
+    st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
     if st.session_state.role == "admin":
-        st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดปุ่มบันทึกได้เลย")
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถดับเบิ้ลคลิกแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** ในตารางแล้วกดปุ่มบันทึกได้เลย (ลูกค้าจะเห็นราคาใหม่ทันที)")
     else:
         st.caption("ℹ️ ตารางดูราคาหน้าร้าน (การแก้ไขราคาต้องใช้สิทธิ์ Admin)")
 
@@ -726,7 +796,7 @@ else:
                         updated_count += 1
                 
                 if updated_count > 0:
-                    st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
+                    st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ! (ฝั่งลูกค้าจะอัปเดตทันที)")
                     time.sleep(0.5)
                     st.rerun()
                 else:
@@ -734,9 +804,9 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู) ---
+    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนูหน้าร้าน) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    st.subheader("🛒 บันทึกรายการขาย")
+    st.subheader("🛒 บันทึกรายการขาย (หน้าร้าน)")
 
     selected_date = st.date_input("📅 วันที่รายการ", value=date.today())
 
@@ -888,7 +958,7 @@ else:
             m_col3.metric("ต้นทุนรวม", f"{total_costs:,.2f} บ.")
             m_col4.metric("ขายได้ทั้งหมด", f"{total_cups:,} แก้ว")
 
-            st.write(f"💳 **แยกเงินเข้า:** 💵 เงินสด `{cash_total:,.0f} บ.` | 📱 QR `{qr_total:,.0f} บ.`")
+            st.write(f"💳 **แยกเงินเข้า:** 💵 เงินสด `{cash_total:,.0f} บ.` | 📱 QR/Scan `{qr_total:,.0f} บ.`")
 
             st.divider()
             st.subheader("📋 รายละเอียดรายการขายวันนี้")
@@ -976,7 +1046,7 @@ else:
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
                     save_menu_item_db(new_name.strip(), new_cost, new_price)
-                    st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อย!")
+                    st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อย! (ลูกค้าเลือกสั่งได้ทันที)")
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
