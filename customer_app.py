@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (แก้ปัญหากรอบซ้อนในตะกร้า) ---
+# --- CSS ตกแต่ง ---
 st.markdown(
     """
     <style>
@@ -90,18 +90,21 @@ st.markdown(
         background: #6E5341 !important;
     }
 
-    /* ปรับแต่ง Checkbox */
-    div[data-testid="stCheckbox"] label span {
+    /* ปรับแต่ง Selectbox / Dropdown */
+    div[data-testid="stSelectbox"] label {
         font-size: 11px !important;
         font-weight: 600 !important;
         color: #554840 !important;
-    }
-    
-    div[data-testid="stCheckbox"] {
-        margin-bottom: 4px !important;
+        margin-bottom: 2px !important;
     }
 
-    /* 🛒 กรอบใหญ่ใบเสร็จตะกร้าสินค้า (กล่องเดียวจบ) */
+    div[data-testid="stSelectbox"] div[role="combobox"] {
+        font-size: 12px !important;
+        padding: 2px 6px !important;
+        min-height: 32px !important;
+    }
+
+    /* 🛒 กรอบใหญ่ใบเสร็จตะกร้าสินค้า */
     .cart-container {
         background-color: #FFFFFF !important;
         border: 2px solid #C8B2A2 !important;
@@ -135,10 +138,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- ตั้งค่าราคาและต้นทุนไข่มุก ---
-PEARL_PRICE = 5.0
-PEARL_COST = 1.0
-
 # ==========================================
 # 🌐 พจนานุกรมแปลภาษา UI
 # ==========================================
@@ -152,7 +151,8 @@ LANGUAGES = {
         "select_menu": "👇 เลือกเมนู:",
         "price": "ราคา",
         "baht": "บ.",
-        "add_pearl": "+ไข่มุก",
+        "topping_label": "ท็อปปิ้ง:",
+        "no_topping": "ไม่ใส่ท็อปปิ้ง",
         "btn_add": "➕ สั่ง",
         "cart_title": "ตะกร้าของคุณ",
         "cart_empty": "ไม่มีรายการในตะกร้า",
@@ -172,7 +172,8 @@ LANGUAGES = {
         "select_menu": "👇 မီနူးရွေးပါ:",
         "price": "ဈေး",
         "baht": "ဘတ်",
-        "add_pearl": "+ကျောက်ကျော",
+        "topping_label": "ထပ်ဆောင်း:",
+        "no_topping": "မထည့်ပါ",
         "btn_add": "➕ မှာမည်",
         "cart_title": "ခြင်းတောင်း",
         "cart_empty": "ခြင်းတောင်းထဲတွင် မရှိပါ",
@@ -192,7 +193,8 @@ LANGUAGES = {
         "select_menu": "👇 选择饮料 Select:",
         "price": "ราคา",
         "baht": "฿",
-        "add_pearl": "+珍珠 Pearls",
+        "topping_label": "配料 Topping:",
+        "no_topping": "不加配料 None",
         "btn_add": "➕ 点餐 Order",
         "cart_title": "购物车 Cart",
         "cart_empty": "购物车为空 Empty",
@@ -263,21 +265,27 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
+# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB ---
 @st.cache_data(ttl=2)
-def get_menu_from_db():
+def load_db_data():
     try:
         conn = get_db_connection()
         c = conn.cursor()
-        c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
-        rows = c.fetchall()
-        conn.close()
         
-        menu_dict = {}
-        for r in rows:
-            menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2])}
-        return menu_dict
+        # 1. ดึงเมนู
+        c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
+        menu_rows = c.fetchall()
+        menu_dict = {r[0]: {"cost": float(r[1]), "price": float(r[2])} for r in menu_rows}
+        
+        # 2. ดึงท็อปปิ้ง
+        c.execute("SELECT name, cost, price FROM toppings ORDER BY price ASC, name ASC")
+        topping_rows = c.fetchall()
+        topping_dict = {r[0]: {"cost": float(r[1]), "price": float(r[2])} for r in topping_rows}
+        
+        conn.close()
+        return menu_dict, topping_dict
     except Exception as e:
-        return {}
+        return {}, {}
 
 if "cart" not in st.session_state:
     st.session_state.cart = []
@@ -311,7 +319,10 @@ with col_top1:
 with col_top2:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
-current_menu = get_menu_from_db()
+current_menu, current_toppings = load_db_data()
+
+# สร้างตัวเลือกสำหรับ Dropdown ท็อปปิ้ง
+topping_options = [t['no_topping']] + [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
 
 if not current_menu:
     st.warning("⏳ Loading...")
@@ -333,7 +344,6 @@ else:
                 cost = info["cost"]
 
                 with cols[j]:
-                    # ห่อเมนูด้วย class menu-card โดยเฉพาะ
                     st.markdown(
                         f"""
                         <div class="menu-card">
@@ -346,19 +356,35 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    pearl_label = f"{t['add_pearl']} (+{PEARL_PRICE:.0f} {t['baht']})"
-                    add_pearl = st.checkbox(pearl_label, key=f"p_{item_name_th}")
+                    # เปลี่ยนจาก Checkbox เป็น Dropdown (Selectbox) เลือกท็อปปิ้ง
+                    selected_tp = st.selectbox(
+                        t['topping_label'], 
+                        options=topping_options, 
+                        key=f"tp_{item_name_th}"
+                    )
                     
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
-                        final_price = price + (PEARL_PRICE if add_pearl else 0)
-                        final_cost = cost + (PEARL_COST if add_pearl else 0)
+                        tp_price = 0.0
+                        tp_cost = 0.0
+                        tp_text = ""
+
+                        if selected_tp != t['no_topping']:
+                            # แยกชื่อท็อปปิ้งภาษาไทยจากข้อความที่เลือก
+                            raw_tp_name = selected_tp.split(" (+")[0]
+                            tp_info = current_toppings.get(raw_tp_name, {"price": 0.0, "cost": 0.0})
+                            tp_price = tp_info["price"]
+                            tp_cost = tp_info["cost"]
+                            tp_text = f" (+{raw_tp_name})"
+
+                        final_price = price + tp_price
+                        final_cost = cost + tp_cost
                         
-                        pearl_text = " (+ไข่มุก)" if add_pearl else ""
-                        item_save_name = f"{item_name_th}{pearl_text}"
+                        item_save_name = f"{item_name_th}{tp_text}"
+                        item_display_save = f"{display_name}{tp_text}"
 
                         st.session_state.cart.append({
                             "name": item_save_name,
-                            "display_name": f"{display_name}{pearl_text}",
+                            "display_name": item_display_save,
                             "price": final_price,
                             "cost": final_cost
                         })
@@ -366,10 +392,10 @@ else:
                         time.sleep(0.2)
                         st.rerun()
 
-                    st.markdown("</div>", unsafe_allow_html=True) # ปิด div.menu-card
+                    st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# 🛒 ตะกร้าสินค้า (รวมอยู่ในกล่องเดียว คลีนๆ)
+# 🛒 ตะกร้าสินค้า
 # ==========================================
 st.divider()
 
@@ -379,7 +405,6 @@ else:
     total_price = 0
     total_cost = 0
 
-    # เปิดกล่องการ์ดตะกร้าสินค้าใหญ่กล่องเดียว
     st.markdown(
         f"""
         <div class="cart-container">
@@ -407,18 +432,16 @@ else:
 
     st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 12px 0;'>", unsafe_allow_html=True)
 
-    # รวมราคา
     col_tot_label, col_tot_val = st.columns([6, 3], vertical_alignment="center")
     with col_tot_label:
         st.markdown(f"<h4 style='margin:0; color: #3D342F; font-size: 15px;'>💰 {t['total_price']}:</h4>", unsafe_allow_html=True)
     with col_tot_val:
         st.markdown(f"<h3 style='margin:0; color: #8C6D58; font-weight: 800; font-size: 18px;'>{total_price:.0f} {t['baht']}</h3>", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True) # ปิด div.cart-container
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.write("") # เว้นระยะเล็กน้อย
+    st.write("")
 
-    # ปุ่มกดยืนยัน / ล้างตะกร้า (อยู่นอกกล่องใบลับ)
     col_order_btn, col_clear_btn = st.columns([2, 1])
 
     with col_order_btn:
