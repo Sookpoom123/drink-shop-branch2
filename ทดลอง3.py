@@ -19,120 +19,121 @@ def get_db_connection():
     return psycopg2.connect(db_url)
 
 # ==========================================
-# 🎨 CSS: Warm Sand & Caramel Style + Force 3 Columns on Mobile
+# 🎨 CSS Optimization (ใช้ Cache เพื่อให้หน้าเว็บลื่นไหล)
 # ==========================================
-st.markdown(
-    """
-    <style>
-    [data-testid="stToolbar"] { display: none !important; }
-    #MainMenu { visibility: hidden; }
-    footer { visibility: hidden; }
-    header[data-testid="stHeader"] { visibility: hidden !important; }
+@st.cache_resource
+def load_app_styles():
+    st.markdown(
+        """
+        <style>
+        [data-testid="stToolbar"] { display: none !important; }
+        #MainMenu { visibility: hidden; }
+        footer { visibility: hidden; }
+        header[data-testid="stHeader"] { visibility: hidden !important; }
 
-    .stApp {
-        background-color: #F8F5F2 !important;
-        color: #3D342F !important;
-    }
+        .stApp {
+            background-color: #F8F5F2 !important;
+            color: #3D342F !important;
+        }
 
-    .mobile-header {
-        background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
-        padding: 20px;
-        border-radius: 18px;
-        color: #FFFFFF;
-        text-align: center;
-        box-shadow: 0 4px 15px rgba(110, 83, 65, 0.15);
-        margin-bottom: 16px;
-    }
+        .mobile-header {
+            background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
+            padding: 20px;
+            border-radius: 18px;
+            color: #FFFFFF;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(110, 83, 65, 0.15);
+            margin-bottom: 16px;
+        }
 
-    .pos-card {
-        background-color: #FFFFFF;
-        padding: 12px;
-        border-radius: 16px;
-        border: 1px solid #EADFD8;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-        margin-bottom: 16px;
-    }
+        .pos-card {
+            background-color: #FFFFFF;
+            padding: 12px;
+            border-radius: 16px;
+            border: 1px solid #EADFD8;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+            margin-bottom: 16px;
+        }
 
-    /* บังคับ st.columns ให้คงสภาพแนวนอนไม่ยุบในมือถือ */
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
-    }
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 4px !important;
+        }
 
-    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
-        min-width: 0 !important;
-        flex: 1 1 0% !important;
-    }
+        div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {
+            min-width: 0 !important;
+            flex: 1 1 0% !important;
+        }
 
-    /* ตกแต่งปุ่มทั่วไป */
-    div.stButton > button, div.stFormSubmitButton > button {
-        background: #8C6D58 !important;
-        color: #FFFFFF !important;
-        border-radius: 12px !important;
-        font-weight: 600 !important;
-        font-size: 14px !important;
-        height: 44px !important;
-        border: none !important;
-        box-shadow: 0 2px 6px rgba(140, 109, 88, 0.2) !important;
-        width: 100% !important;
-        transition: all 0.2s ease-in-out;
-    }
+        div.stButton > button, div.stFormSubmitButton > button {
+            background: #8C6D58 !important;
+            color: #FFFFFF !important;
+            border-radius: 12px !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            height: 44px !important;
+            border: none !important;
+            box-shadow: 0 2px 6px rgba(140, 109, 88, 0.2) !important;
+            width: 100% !important;
+            transition: all 0.2s ease-in-out;
+        }
 
-    div.stButton > button:hover {
-        background: #755946 !important;
-    }
+        div.stButton > button:hover {
+            background: #755946 !important;
+        }
 
-    div.stButton > button:active {
-        transform: scale(0.98);
-    }
+        div.stButton > button:active {
+            transform: scale(0.98);
+        }
 
-    /* ตกแต่งปุ่มการ์ดเมนู (บังคับขนาดและตัวอักษรสำหรับ 3 คอลัมน์บนมือถือ) */
-    div[data-testid="stColumn"] div.stButton > button {
-        height: 58px !important;
-        padding: 2px 2px !important;
-        background: #FFFFFF !important;
-        color: #4A3B32 !important;
-        border: 1.5px solid #E5D7CE !important;
-        border-radius: 10px !important;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.03) !important;
-        white-space: pre-line !important;
-        line-height: 1.15 !important;
-        font-size: 11px !important;
-        font-weight: 600 !important;
-    }
+        div[data-testid="stColumn"] div.stButton > button {
+            height: 58px !important;
+            padding: 2px 2px !important;
+            background: #FFFFFF !important;
+            color: #4A3B32 !important;
+            border: 1.5px solid #E5D7CE !important;
+            border-radius: 10px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03) !important;
+            white-space: pre-line !important;
+            line-height: 1.15 !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+        }
 
-    div[data-testid="stColumn"] div.stButton > button:hover {
-        background: #F4ECE7 !important;
-        border-color: #8C6D58 !important;
-    }
+        div[data-testid="stColumn"] div.stButton > button:hover {
+            background: #F4ECE7 !important;
+            border-color: #8C6D58 !important;
+        }
 
-    div[data-baseweb="input"] {
-        border-radius: 10px !important;
-        border-color: #D3C4B9 !important;
-    }
+        div[data-baseweb="input"] {
+            border-radius: 10px !important;
+            border-color: #D3C4B9 !important;
+        }
 
-    button[data-baseweb="tab"] {
-        font-weight: 600 !important;
-        color: #8C7B70 !important;
-    }
+        button[data-baseweb="tab"] {
+            font-weight: 600 !important;
+            color: #8C7B70 !important;
+        }
 
-    button[aria-selected="true"] {
-        color: #6E5341 !important;
-        border-bottom-color: #8C6D58 !important;
-    }
+        button[aria-selected="true"] {
+            color: #6E5341 !important;
+            border-bottom-color: #8C6D58 !important;
+        }
 
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.4rem !important;
-        padding-right: 0.4rem !important;
-    }
-    </style>
-    """, 
-    unsafe_allow_html=True
-)
+        .block-container {
+            padding-top: 1rem !important;
+            padding-bottom: 2rem !important;
+            padding-left: 0.4rem !important;
+            padding-right: 0.4rem !important;
+        }
+        </style>
+        """, 
+        unsafe_allow_html=True
+    )
+
+load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
 PEARL_PRICE = 5.0
@@ -298,6 +299,7 @@ def get_user_profile_img(username):
         return row[0]
     return None
 
+@st.cache_data(ttl=60)
 def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -319,6 +321,7 @@ def save_menu_item_db(name, cost, price):
     """, (name, cost, price))
     conn.commit()
     conn.close()
+    st.cache_data.clear()
 
 def delete_menu_item_db(name):
     conn = get_db_connection()
@@ -326,6 +329,7 @@ def delete_menu_item_db(name):
     c.execute("DELETE FROM menu_items WHERE name = %s", (name,))
     conn.commit()
     conn.close()
+    st.cache_data.clear()
 
 def add_user(username, password, role='user'):
     conn = get_db_connection()
@@ -410,7 +414,7 @@ def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, s
     ''', (str(sale_date), item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method))
     conn.commit()
     conn.close()
-    st.cache_data.clear() # เคลียร์แคชเพื่ออัปเดตยอดทันที
+    st.cache_data.clear()
 
 @st.cache_data(ttl=10)
 def get_sales():
@@ -425,6 +429,7 @@ def delete_sale_by_id(record_id):
     c.execute("DELETE FROM sales WHERE id = %s", (record_id,))
     conn.commit()
     conn.close()
+    st.cache_data.clear()
 
 # ==========================================
 # 🔔 POP-UP DIALOGS
@@ -731,17 +736,15 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู แถวละ 3 เมนู บังคับเรียงบนมือถือ) ---
+    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนู) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("🛒 บันทึกรายการขาย")
 
     selected_date = st.date_input("📅 วันที่รายการ", value=date.today())
 
     if current_menu:
-        # ช่องค้นหาเมนูด่วน
         search_sale_term = st.text_input("🔍 ค้นหาเมนูด่วน...", placeholder="พิมพ์ชื่อเมนูเพื่อกรอง...", key="search_sale_input")
         
-        # กรองเมนูตามคำค้นหา
         filtered_menu = {k: v for k, v in current_menu.items() if search_sale_term.strip().lower() in k.lower()}
 
         if "selected_menu_item" not in st.session_state or st.session_state.selected_menu_item not in current_menu:
@@ -749,10 +752,8 @@ else:
 
         st.caption("👇 **คลิกเลือกเมนูที่ต้องการ:**")
 
-        # แสดงปุ่มการ์ดเมนูเรียงเป็น 3 คอลัมน์ (แถวละ 3 เมนู)
         if filtered_menu:
             menu_items_list = list(filtered_menu.items())
-            # วนลูปสร้างทีละ 3 ปุ่มต่อ 1 แถว
             for i in range(0, len(menu_items_list), 3):
                 chunk = menu_items_list[i:i+3]
                 menu_cols = st.columns(3)
@@ -787,7 +788,8 @@ else:
             unit_price = base_price + (PEARL_PRICE if add_pearl else 0)
             unit_cost = base_cost + (PEARL_COST if add_pearl else 0)
             unit_profit = unit_price - unit_cost
-# --- ส่วนจัดการจำนวนแก้ว (พิมพ์ระบุจำนวนได้ + กดปุ่มปรับได้) ---
+
+            # --- ส่วนจัดการจำนวนแก้ว (พิมพ์ระบุจำนวนได้ + กดปุ่มปรับได้) ---
             st.write("🔢 **จำนวนแก้ว:**")
             
             def update_qty(change):
@@ -797,7 +799,7 @@ else:
             with q_col1:
                 st.button("➖", key="btn_minus", on_click=update_qty, args=(-1,), use_container_width=True)
             with q_col2:
-                # ช่องพิมพ์จำนวนแก้วโดยตรง (รองรับการพิมพ์ 100 แก้ว)
+                # ช่องพิมพ์จำนวนแก้วโดยตรง (รองรับการพิมพ์จำนวนมากๆ เช่น 100 แก้ว)
                 st.number_input(
                     "จำนวนแก้ว", 
                     min_value=1, 
@@ -845,19 +847,16 @@ else:
         current_month = datetime.today().month
         current_year = datetime.today().year
 
-        # คำนวณยอดขายวันนี้
         df_today = df_all[df_all['sale_date'] == today_str]
         today_sales = df_today['total_price'].sum() if not df_today.empty else 0
         today_cups = df_today['qty'].sum() if not df_today.empty else 0
 
-        # คำนวณยอดขายเดือนนี้
         df_month = df_all[(df_all['date_dt'].dt.month == current_month) & (df_all['date_dt'].dt.year == current_year)]
         month_sales = df_month['total_price'].sum() if not df_month.empty else 0
         month_cups = df_month['qty'].sum() if not df_month.empty else 0
     else:
         today_sales, today_cups, month_sales, month_cups = 0, 0, 0, 0
 
-    # แสดงผลการ์ดสรุปยอดขายบนหน้าจอ
     col1, col2 = st.columns(2)
     with col1:
         st.metric(label="📅 ยอดขายวันนี้", value=f"{today_sales:,.0f} บาท", delta=f"{today_cups:,} แก้ว")
