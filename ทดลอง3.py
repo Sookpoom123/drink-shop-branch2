@@ -787,18 +787,19 @@ else:
             unit_price = base_price + (PEARL_PRICE if add_pearl else 0)
             unit_cost = base_cost + (PEARL_COST if add_pearl else 0)
             unit_profit = unit_price - unit_cost
-
+# --- แก้ไขส่วนจำนวนแก้วให้ใช้นวัตกรรม on_click (หายหน่วงทันที) ---
             st.write("🔢 **จำนวนแก้ว:**")
+            
+            def update_qty(change):
+                st.session_state.mobile_qty = max(1, st.session_state.mobile_qty + change)
+
             q_col1, q_col2, q_col3 = st.columns([1, 2, 1])
             with q_col1:
-                if st.button("➖", key="btn_minus"):
-                    if st.session_state.mobile_qty > 1:
-                        st.session_state.mobile_qty -= 1
+                st.button("➖", key="btn_minus", on_click=update_qty, args=(-1,), use_container_width=True)
             with q_col2:
-                st.markdown(f"<h3 style='text-align: center; margin:0;'>{st.session_state.mobile_qty} แก้ว</h3>", unsafe_allow_html=True)
+                st.markdown(f"<h2 style='text-align: center; margin:0; color:#6E5341;'>{st.session_state.mobile_qty} แก้ว</h2>", unsafe_allow_html=True)
             with q_col3:
-                if st.button("➕", key="btn_plus"):
-                    st.session_state.mobile_qty += 1
+                st.button("➕", key="btn_plus", on_click=update_qty, args=(1,), use_container_width=True)
 
             qty = st.session_state.mobile_qty
             total_price = unit_price * qty
