@@ -119,7 +119,7 @@ load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
 
-# --- รายการเมนูใหม่ 46 รายการจากป้ายหน้าร้าน ---
+# --- รายการเมนู 46 รายการจากป้ายหน้าร้าน ---
 DEFAULT_MENU = {
     # TAIWAN MILK TEA
     "ชานมไต้หวัน": {"cost": 8.0, "price": 19},
@@ -180,7 +180,7 @@ DEFAULT_MENU = {
     "มัทฉะนมสดปั่น": {"cost": 18.0, "price": 44},
 }
 
-# --- รายการท็อปปิ้งจากรูปภาพป้ายหน้าร้าน ---
+# --- รายการท็อปปิ้ง ---
 DEFAULT_TOPPINGS = {
     # ท็อปปิ้ง 5 บาท
     "ไข่มุกสีดำ": 5.0,
@@ -572,7 +572,7 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที (แก้ไขปัญหาขึ้นไม่ใส่ท็อปปิ้งซ้ำ) ---
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที ---
 @st.fragment(run_every="5s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
@@ -601,13 +601,21 @@ def render_kitchen_orders():
                         item_summary_text = []
                         
                         for item in items:
-                            # ⚡ ดึงชื่อสินค้าแบบรวมท็อปปิ้งจาก display_name หรือ name
                             item_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
                             item_price = item.get('price', 0.0)
                             
-                            # แสดงผลเฉพาะชื่อสินค้า (ตัดการแสดงผล '(ไม่ใส่ท็อปปิ้ง)' ที่ซ้ำซ้อนออก)
-                            st.write(f"- **{item_display}** ({item_price} บาท)")
-                            item_summary_text.append(item_display)
+                            # ⚡ เช็กว่ามีการระบุท็อปปิ้งหรือไม่
+                            topping_val = item.get('topping')
+                            has_topping = (topping_val and topping_val != "ไม่ใส่ท็อปปิ้ง") or ("(+" in item_display)
+                            
+                            if not has_topping:
+                                # ถ้าไม่ได้ใส่ท็อปปิ้ง แสดงคำว่า (ไม่ใส่ท็อปปิ้ง) ต่อท้าย
+                                full_item_text = f"{item_display} (ไม่ใส่ท็อปปิ้ง)"
+                            else:
+                                full_item_text = item_display
+
+                            st.write(f"- **{full_item_text}** ({item_price} บาท)")
+                            item_summary_text.append(full_item_text)
                         
                         st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
 
