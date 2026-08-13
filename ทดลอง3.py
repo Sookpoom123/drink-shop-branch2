@@ -787,7 +787,7 @@ else:
             unit_price = base_price + (PEARL_PRICE if add_pearl else 0)
             unit_cost = base_cost + (PEARL_COST if add_pearl else 0)
             unit_profit = unit_price - unit_cost
-# --- แก้ไขส่วนจำนวนแก้วให้ใช้นวัตกรรม on_click (หายหน่วงทันที) ---
+# --- ส่วนจัดการจำนวนแก้ว (พิมพ์ระบุจำนวนได้ + กดปุ่มปรับได้) ---
             st.write("🔢 **จำนวนแก้ว:**")
             
             def update_qty(change):
@@ -797,7 +797,14 @@ else:
             with q_col1:
                 st.button("➖", key="btn_minus", on_click=update_qty, args=(-1,), use_container_width=True)
             with q_col2:
-                st.markdown(f"<h2 style='text-align: center; margin:0; color:#6E5341;'>{st.session_state.mobile_qty} แก้ว</h2>", unsafe_allow_html=True)
+                # ช่องพิมพ์จำนวนแก้วโดยตรง (รองรับการพิมพ์ 100 แก้ว)
+                st.number_input(
+                    "จำนวนแก้ว", 
+                    min_value=1, 
+                    max_value=999, 
+                    key="mobile_qty", 
+                    label_visibility="collapsed"
+                )
             with q_col3:
                 st.button("➕", key="btn_plus", on_click=update_qty, args=(1,), use_container_width=True)
 
