@@ -119,7 +119,7 @@ load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
 
-# --- รายการเมนูตั้งต้น 46 รายการ (ใช้สร้างตารางกรณีเพิ่งเปิดฐานข้อมูลครั้งแรก) ---
+# --- รายการเมนูตั้งต้น ---
 DEFAULT_MENU = {
     "ชานมไต้หวัน": {"cost": 8.0, "price": 19},
     "ชานมวนิลา": {"cost": 10.0, "price": 24},
@@ -237,7 +237,6 @@ def init_db():
         )
     ''')
     
-    # เติมข้อมูลเริ่มต้นถ้ายังไม่มีข้อมูลในระบบเลย
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
         for name, info in DEFAULT_MENU.items():
@@ -254,7 +253,6 @@ def init_db():
     conn.close()
 
 def reset_and_sync_toppings():
-    """ฟังก์ชั่นสำหรับซิงค์ท็อปปิ้งจากป้ายร้านเข้า Database"""
     conn = get_db_connection()
     c = conn.cursor()
     for name, price in DEFAULT_TOPPINGS.items():
@@ -328,7 +326,7 @@ def save_menu_item_db(name, cost, price):
     """, (name, cost, price))
     conn.commit()
     conn.close()
-    st.cache_data.clear()  # ⚡ ล้างแคชทันทีเพื่อให้หน้าเว็บโหลดเมนูใหม่ขึ้นมาทันที
+    st.cache_data.clear()
 
 def save_topping_db(name, price):
     conn = get_db_connection()
@@ -556,8 +554,6 @@ def render_kitchen_orders():
             st.warning(f"⚠️ มีออเดอร์ค้างทำอยู่ **{len(pending_orders)}** รายการ")
             for order in pending_orders:
                 order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
-                
-                # แปลงข้อมูล JSON เป็น List
                 items = json.loads(items_json) if isinstance(items_json, str) else items_json
                 
                 with st.container(border=True):
@@ -570,7 +566,6 @@ def render_kitchen_orders():
                             item_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
                             item_price = item.get('price', 0.0)
                             
-                            # ⚡ เช็กว่ามีการระบุท็อปปิ้งหรือไม่
                             topping_val = item.get('topping')
                             has_topping = (topping_val and topping_val != "ไม่ใส่ท็อปปิ้ง") or ("(+" in item_display)
                             
@@ -768,12 +763,12 @@ else:
     # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
     render_kitchen_orders()
 
-    # --- ส่วนที่ 2: ตารางราคาเมนู & ท็อปปิ้ง ---
+    # --- ส่วนที่ 2: ตารางราคาเมนู (ตัดต้นทุนและกำไรออกแล้ว) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
     if st.session_state.role == "admin":
-        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ต้นทุน'** หรือ **'ราคาขาย'** แล้วกดบันทึกได้เลย")
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ราคาขาย'** แล้วกดบันทึกได้เลย")
     else:
         st.caption("ℹ️ ตารางดูราคาหน้าร้าน")
 
@@ -785,14 +780,12 @@ else:
             if search_top_table.lower() in item.lower():
                 top_menu_list.append({
                     "เมนู": item,
-                    "ต้นทุน": float(info['cost']),
-                    "ราคาปกติ": float(info['price']),
-                    "กำไรปกติ": float(round(info['price'] - info['cost'], 2))
+                    "ราคาปกติ": float(info['price'])
                 })
         
         df_menu_view = pd.DataFrame(top_menu_list)
 
-        disabled_cols = ["เมนู", "กำไรปกติ"]
+        disabled_cols = ["เมนู"]
         if st.session_state.role != "admin":
             disabled_cols = True
 
@@ -802,9 +795,7 @@ else:
             height=250,
             disabled=disabled_cols,
             column_config={
-                "ต้นทุน": st.column_config.NumberColumn("ต้นทุน (บ.)", format="%.2f"),
-                "ราคาปกติ": st.column_config.NumberColumn("ราคาปกติ (บ.)", format="%.0f"),
-                "กำไรปกติ": st.column_config.NumberColumn("กำไรปกติ (บ.)", format="%.1f")
+                "ราคาปกติ": st.column_config.NumberColumn("ราคาปกติ (บ.)", format="%.0f")
             },
             hide_index=True,
             key="direct_menu_editor"
@@ -815,14 +806,13 @@ else:
                 updated_count = 0
                 for _, row in edited_df.iterrows():
                     m_name = row["เมนู"]
-                    new_c = row["ต้นทุน"]
                     new_p = row["ราคาปกติ"]
                     
                     old_c = current_menu[m_name]["cost"]
                     old_p = current_menu[m_name]["price"]
                     
-                    if new_c != old_c or new_p != old_p:
-                        save_menu_item_db(m_name, new_c, new_p)
+                    if new_p != old_p:
+                        save_menu_item_db(m_name, old_c, new_p)
                         updated_count += 1
                 
                 if updated_count > 0:
@@ -984,7 +974,7 @@ else:
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
                     save_menu_item_db(new_name.strip(), new_cost, new_price)
-                    st.cache_data.clear()  # ⚡ ล้าง Cache ทันทีเพื่อให้เด้งแสดงผลเลย
+                    st.cache_data.clear()
                     st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
                     time.sleep(0.5)
                     st.rerun()
