@@ -822,13 +822,36 @@ if st.button("✅ บันทึกการขาย", use_container_width=Tru
     time.sleep(1)
     st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
+# --- ส่วนที่ 2: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
+df_all = get_sales()
 
-    # --- ส่วนที่ 2: สรุปยอดขายประจำวัน ---
-    st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    st.subheader(f"📊 สรุปยอดวันที่ {selected_date}")
+if not df_all.empty and 'date' in df_all.columns:
+    df_all['date'] = pd.to_datetime(df_all['date'])
+    
+    today_str = datetime.today().strftime('%Y-%m-%d')
+    current_month = datetime.today().month
+    current_year = datetime.today().year
 
-    df_all = get_sales()
+    # คำนวณยอดขายวันนี้
+    df_today = df_all[df_all['date'].dt.strftime('%Y-%m-%d') == today_str]
+    today_sales = df_today['total_price'].sum() if not df_today.empty else 0
+    today_cups = df_today['qty'].sum() if not df_today.empty else 0
 
+    # คำนวณยอดขายเดือนนี้
+    df_month = df_all[(df_all['date'].dt.month == current_month) & (df_all['date'].dt.year == current_year)]
+    month_sales = df_month['total_price'].sum() if not df_month.empty else 0
+    month_cups = df_month['qty'].sum() if not df_month.empty else 0
+else:
+    today_sales, today_cups, month_sales, month_cups = 0, 0, 0, 0
+
+# แสดงผลการ์ดสรุปยอดขายบนหน้าจอ
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(label="📅 ยอดขายวันนี้", value=f"{today_sales:,.0f} บาท", delta=f"{today_cups:,} แก้ว")
+with col2:
+    st.metric(label="📊 ยอดขายเดือนนี้", value=f"{month_sales:,.0f} บาท", delta=f"{month_cups:,} แก้ว")
+
+st.divider()
     if not df_all.empty:
         df_day = df_all[df_all["sale_date"] == str(selected_date)]
         
