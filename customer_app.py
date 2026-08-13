@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS บังคับ Grid 3 คอลัมน์ ---
+# --- CSS ตกแต่ง + ทำเส้นขอบล้อมรอบการ์ดเมนูทุกองค์ประกอบ ---
 st.markdown(
     """
     <style>
@@ -38,7 +38,7 @@ st.markdown(
     header[data-testid="stHeader"] { visibility: hidden !important; }
 
     .stApp {
-        background-color: #F8F5F2 !important;
+        background-color: #F4EFEA !important;
         color: #3D342F !important;
     }
 
@@ -48,14 +48,15 @@ st.markdown(
         border-radius: 12px;
         color: #FFFFFF;
         text-align: center;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
 
+    /* ⚡ ล็อก Layout Grid 3 คอลัมน์ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 6px !important;
+        gap: 8px !important;
     }
 
     div[data-testid="stHorizontalBlock"] > div {
@@ -64,43 +65,54 @@ st.markdown(
         flex: 1 1 33.33% !important;
     }
 
-    .menu-box {
-        background-color: #FFFFFF;
-        border: 1px solid #EADFD8;
-        border-radius: 8px;
-        padding: 4px;
-        text-align: center;
-        margin-bottom: 2px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    /* 📦 กรอบการ์ดเมนูแบบมีเส้นขอบชัดเจน (รวมทุกอย่างไว้ในกล่องเดียว) */
+    div[data-testid="stColumn"] > div {
+        background-color: #FFFFFF !important;
+        border: 2px solid #C8B2A2 !important; /* เส้นขอบสีเข้มชัดเจน */
+        border-radius: 12px !important;
+        padding: 8px 10px !important;
+        box-shadow: 0 2px 6px rgba(140, 109, 88, 0.12) !important;
+        margin-bottom: 6px !important;
     }
 
+    /* เส้นขีดแบ่งโซนภายในกล่องเมนู */
+    .card-divider {
+        border-top: 1px dashed #D3C4B8;
+        margin: 6px 0;
+    }
+
+    /* ปุ่มกดปรับให้เต็มความกว้างในกล่อง */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
-        border-radius: 6px !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
-        font-size: 11px !important;
-        padding: 2px 4px !important;
+        font-size: 13px !important;
+        padding: 4px 8px !important;
         border: none !important;
         width: 100% !important;
-        height: auto !important;
-        min-height: 28px !important;
     }
 
+    div.stButton > button:hover {
+        background: #6E5341 !important;
+    }
+
+    /* ปรับแต่ง Checkbox */
     div[data-testid="stCheckbox"] label span {
-        font-size: 10px !important;
-        padding-left: 2px !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        color: #554840 !important;
     }
     
-    div[data-testid="stCheckbox"] label {
-        padding: 0 !important;
+    div[data-testid="stCheckbox"] {
+        margin-bottom: 4px !important;
     }
 
     .block-container {
         padding-top: 0.5rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 0.3rem !important;
-        padding-right: 0.3rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
     </style>
     """, 
@@ -176,11 +188,7 @@ LANGUAGES = {
     }
 }
 
-# ==========================================
-# 📖 พจนานุกรมแปลเมนู (เพิ่มครบทุกเมนูตามภาพ)
-# ==========================================
 MENU_TRANSLATIONS = {
-    # เมนูพื้นฐาน
     "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文/EN": "冰红茶 Tea"},
     "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文/EN": "柠檬茶 Lemon Tea"},
     "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "柠檬绿 Lemon Green"},
@@ -195,8 +203,6 @@ MENU_TRANSLATIONS = {
     "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "泰奶 Thai Milk Tea"},
     "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "绿奶茶 Green Milk"},
     "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文/EN": "香蕉鲜奶 Banana Milk"},
-
-    # เมนูชาแคนตาลูป / ชาแดง / ชานมต่างๆ (จากในรูปภาพ)
     "ชาแคนตาลูป(แคนตาลูป)": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
     "ชาแคนตาลูป": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
     "ชาแดงน้ำผึ้งมะนาว": {"🇲🇲 Myanmar": "ပျားရည် သံပုရာ လက်ဖက်နီ", "🇨🇳 中文/EN": "蜂蜜柠檬红茶 Honey Lemon Red Tea"},
@@ -213,7 +219,6 @@ MENU_TRANSLATIONS = {
     "ชานมเผือก": {"🇲🇲 Myanmar": "ပိန်းဥ နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "香芋奶茶 Taro Milk Tea"}
 }
 
-# คำศัพท์พื้นฐานสำหรับการแปลคำผสมอัตโนมัติ (Dynamic Fallback Translation)
 WORD_MAP = {
     "🇲🇲 Myanmar": {
         "ชา": "လက်ဖက်ရည်", "นม": "နို့", "เขียว": "စိမ်း", "แดง": "နီ", 
@@ -230,21 +235,15 @@ WORD_MAP = {
 }
 
 def translate_item(name_th, lang):
-    """ฟังก์ชันช่วยแปลชื่อเมนู ถ้าไม่มีในพจนานุกรมตรงๆ จะพยายามแปลคำประกอบ"""
     if lang == "🇹🇭 ไทย":
         return name_th
-        
-    # 1. เช็กจากพจนานุกรมหลักก่อน
     if name_th in MENU_TRANSLATIONS and lang in MENU_TRANSLATIONS[name_th]:
         return MENU_TRANSLATIONS[name_th][lang]
-        
-    # 2. แปลอัตโนมัติตามคำศัพท์ย่อย (Fallback)
     result = name_th
     words = WORD_MAP.get(lang, {})
     for th_word, target_word in words.items():
         if th_word in result:
             result = result.replace(th_word, f" {target_word} ")
-            
     return result.strip()
 
 # ==========================================
@@ -305,14 +304,13 @@ if not current_menu:
 else:
     filtered_items = []
     for item_name_th, info in current_menu.items():
-        # เรียกใช้ฟังก์ชันแปลภาษาแบบไดนามิก
         display_name = translate_item(item_name_th, selected_lang)
 
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
     # ==========================================
-    # 🍱 แสดงผล 3 เมนูต่อแถว
+    # 🍱 แสดงผลแบบ Card แยกกรอบชัดเจน 3 คอลัมน์
     # ==========================================
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
@@ -324,19 +322,22 @@ else:
                 cost = info["cost"]
 
                 with cols[j]:
+                    # หัวข้อการ์ดเมนู + ราคา
                     st.markdown(
                         f"""
-                        <div class="menu-box">
-                            <div style="font-weight: bold; font-size: 11px; height: 30px; overflow: hidden; line-height: 1.1;">{display_name}</div>
-                            <div style="color: #8C6D58; font-weight: bold; font-size: 11px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                        <div style="text-align: center;">
+                            <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
+                            <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                         </div>
+                        <div class="card-divider"></div>
                         """, 
                         unsafe_allow_html=True
                     )
                     
+                    # ตัวเลือก + ปุ่มกด (ถูกรวบอยู่ในกรอบเดียวกัน)
                     add_pearl = st.checkbox(f"{t['add_pearl']}", key=f"p_{item_name_th}")
                     
-                    if st.button(t['btn_add'], key=f"b_{item_name_th}"):
+                    if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
                         final_price = price + (PEARL_PRICE if add_pearl else 0)
                         final_cost = cost + (PEARL_COST if add_pearl else 0)
                         
