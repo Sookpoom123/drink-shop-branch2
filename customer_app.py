@@ -4,11 +4,11 @@ import time
 import json
 from datetime import datetime
 
-# --- ตั้งค่าหน้าตาเว็บไซต์สำหรับลูกค้า (Mobile First) ---
+# --- ตั้งค่าหน้าตาเว็บไซต์ (ปรับเป็น wide เพื่อรองรับ Grid 3 คอลัมน์) ---
 st.set_page_config(
     page_title="Order Drink 🧋", 
     page_icon="🧋", 
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
@@ -44,21 +44,23 @@ st.markdown(
 
     .customer-header {
         background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
-        padding: 18px;
-        border-radius: 18px;
+        padding: 16px;
+        border-radius: 16px;
         color: #FFFFFF;
         text-align: center;
         box-shadow: 0 4px 15px rgba(110, 83, 65, 0.15);
         margin-bottom: 16px;
     }
 
+    /* ตกแต่งการ์ดเมนูขนาดกะทัดรัด */
     .menu-card {
         background-color: #FFFFFF;
-        padding: 14px;
-        border-radius: 16px;
+        padding: 12px;
+        border-radius: 14px;
         border: 1px solid #EADFD8;
         box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         margin-bottom: 12px;
+        height: 100%;
     }
 
     div.stButton > button {
@@ -69,19 +71,16 @@ st.markdown(
         border: none !important;
     }
 
-    /* ปรับแต่งปุ่มเลือกภาษา */
+    /* ซ่อน Label ของ Segmented Control ให้สะอาดตา */
     div[data-testid="stRadio"] > label {
         display: none !important;
     }
-    div[data-testid="stRadio"] > div {
-        gap: 6px;
-    }
 
     .block-container {
-        padding-top: 0.8rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 2rem !important;
-        padding-left: 0.6rem !important;
-        padding-right: 0.6rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
     }
     </style>
     """, 
@@ -102,11 +101,11 @@ LANGUAGES = {
         "table_default": "โต๊ะ 1",
         "search_label": "🔍 ค้นหาเมนูด่วน...",
         "search_placeholder": "พิมพ์ชื่อเมนูเพื่อกรอง...",
-        "select_menu": "👇 คลิกเลือกเมนูที่ต้องการ:",
+        "select_menu": "👇 เลือกเมนูที่ต้องการ:",
         "price": "ราคา",
         "baht": "บาท",
         "add_pearl": "เพิ่มไข่มุก",
-        "btn_add": "➕ สั่งเมนูนี้",
+        "btn_add": "➕ สั่งซื้อ",
         "cart_title": "🛒 ตะกร้าสินค้าของคุณ",
         "cart_empty": "ยังไม่มีรายการในตะกร้า เลือกเมนูด้านบนได้เลยครับ",
         "total_price": "ราคารวมทั้งหมด",
@@ -201,48 +200,49 @@ def get_menu_from_db():
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-# --- 🔘 ปุ่มเลือกภาษาแบบกดง่าย (Segmented Control) ด้านบนสุด ---
-selected_lang = st.segmented_control(
-    "เลือกภาษา / Language",
-    options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文 / EN"],
-    default="🇹🇭 ไทย",
-    key="lang_segmented"
-)
+# --- 🔘 แถบเลือกภาษาและข้อมูลส่วนหัว ---
+col_head1, col_head2 = st.columns([1, 2])
 
-# กรณีไม่ได้เลือกอะไร ให้ใช้ภาษาไทยเป็นหลัก
+with col_head1:
+    selected_lang = st.segmented_control(
+        "Language",
+        options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文 / EN"],
+        default="🇹🇭 ไทย",
+        key="lang_segmented"
+    )
+
 if not selected_lang:
     selected_lang = "🇹🇭 ไทย"
 
-t = LANGUAGES[selected_lang] # ดึงข้อความตามภาษาที่เลือก
+t = LANGUAGES[selected_lang]
 
 # --- ส่วนหัวของเว็บ ---
 st.markdown(
     f"""
     <div class="customer-header">
-        <h2 style="margin: 0; font-size: 22px; font-weight: 700;">{t['header_title']}</h2>
-        <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.90;">{t['header_sub']}</p>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 700;">{t['header_title']}</h2>
+        <p style="margin: 2px 0 0 0; font-size: 12px; opacity: 0.90;">{t['header_sub']}</p>
     </div>
     """, 
     unsafe_allow_html=True
 )
 
-# --- ระบุหมายเลขโต๊ะ/ชื่อลูกค้า ---
-table_number = st.text_input(t['table_label'], value=t['table_default'], key="table_no_input")
+col_top1, col_top2 = st.columns([1, 1])
+with col_top1:
+    table_number = st.text_input(t['table_label'], value=t['table_default'], key="table_no_input")
+with col_top2:
+    search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
-# --- ดึงข้อมูลเมนูล่าสุดจาก Database ---
 current_menu = get_menu_from_db()
-
-# --- ค้นหาเมนู ---
-search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 st.write(f"**{t['select_menu']}**")
 
 if not current_menu:
     st.warning("⏳ Loading menu...")
 else:
-    # แสดงการ์ดเมนู
+    # กรองรายการเมนูตามคำค้นหา
+    filtered_items = []
     for item_name_th, info in current_menu.items():
-        # แปลชื่อเมนูตามภาษา
         display_name = item_name_th
         if selected_lang in ["🇲🇲 Myanmar", "🇨🇳 中文 / EN"]:
             translated = MENU_TRANSLATIONS.get(item_name_th, {}).get(selected_lang)
@@ -250,37 +250,45 @@ else:
                 display_name = f"{translated} ({item_name_th})"
 
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
-            price = info["price"]
-            cost = info["cost"]
+            filtered_items.append((item_name_th, display_name, info))
 
-            st.markdown('<div class="menu-card">', unsafe_allow_html=True)
-            col_m1, col_m2 = st.columns([2, 1])
+    # ==========================================
+    # 🍱 แสดงผลเมนูแบบ Grid (1 บรรทัด = 3 เมนู)
+    # ==========================================
+    NUM_COLS = 3  # กำหนดจำนวนคอลัมน์ต่อบรรทัด
+    for i in range(0, len(filtered_items), NUM_COLS):
+        cols = st.columns(NUM_COLS)
+        for j in range(NUM_COLS):
+            if i + j < len(filtered_items):
+                item_name_th, display_name, info = filtered_items[i + j]
+                price = info["price"]
+                cost = info["cost"]
 
-            with col_m1:
-                st.markdown(f"### **{display_name}**")
-                st.markdown(f"💰 **{t['price']}: {price:.0f} {t['baht']}**")
-
-            with col_m2:
-                add_pearl = st.checkbox(f"{t['add_pearl']} (+{PEARL_PRICE:.0f}฿)", key=f"pearl_{item_name_th}")
-                
-                if st.button(t['btn_add'], key=f"btn_add_{item_name_th}", use_container_width=True):
-                    final_price = price + (PEARL_PRICE if add_pearl else 0)
-                    final_cost = cost + (PEARL_COST if add_pearl else 0)
+                with cols[j]:
+                    st.markdown('<div class="menu-card">', unsafe_allow_html=True)
+                    st.markdown(f"#### **{display_name}**")
+                    st.markdown(f"💰 **{t['price']}: {price:.0f} {t['baht']}**")
                     
-                    pearl_text = " (+ไข่มุก)" if add_pearl else ""
-                    item_save_name = f"{item_name_th}{pearl_text}"
+                    add_pearl = st.checkbox(f"{t['add_pearl']} (+{PEARL_PRICE:.0f}฿)", key=f"pearl_{item_name_th}")
+                    
+                    if st.button(t['btn_add'], key=f"btn_add_{item_name_th}", use_container_width=True):
+                        final_price = price + (PEARL_PRICE if add_pearl else 0)
+                        final_cost = cost + (PEARL_COST if add_pearl else 0)
+                        
+                        pearl_text = " (+ไข่มุก)" if add_pearl else ""
+                        item_save_name = f"{item_name_th}{pearl_text}"
 
-                    st.session_state.cart.append({
-                        "name": item_save_name,
-                        "display_name": f"{display_name}{pearl_text}",
-                        "price": final_price,
-                        "cost": final_cost
-                    })
-                    st.toast(f"{t['toast_added']}", icon="🛒")
-                    time.sleep(0.3)
-                    st.rerun()
+                        st.session_state.cart.append({
+                            "name": item_save_name,
+                            "display_name": f"{display_name}{pearl_text}",
+                            "price": final_price,
+                            "cost": final_cost
+                        })
+                        st.toast(f"{t['toast_added']}", icon="🛒")
+                        time.sleep(0.3)
+                        st.rerun()
 
-            st.markdown('</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 🛒 ตะกร้าสินค้าและการส่งออเดอร์
@@ -295,7 +303,7 @@ else:
     total_cost = 0
 
     for idx, cart_item in enumerate(st.session_state.cart):
-        c1, c2, c3 = st.columns([3, 2, 1])
+        c1, c2, c3 = st.columns([4, 2, 1])
         c1.write(f"**{cart_item.get('display_name', cart_item['name'])}**")
         c2.write(f"{cart_item['price']:.0f} {t['baht']}")
         if c3.button("❌", key=f"remove_cart_{idx}"):
@@ -307,7 +315,7 @@ else:
 
     st.markdown(f"### 💰 **{t['total_price']}: {total_price:.0f} {t['baht']}**")
 
-    col_order_btn, col_clear_btn = st.columns([2, 1])
+    col_order_btn, col_clear_btn = st.columns([3, 1])
 
     with col_order_btn:
         if st.button(t['btn_order'], type="primary", use_container_width=True):
@@ -327,7 +335,7 @@ else:
                     conn.commit()
                     conn.close()
 
-                    st.session_state.cart = []  # ล้างตะกร้า
+                    st.session_state.cart = []
                     st.balloons()
                     st.success(t['success_msg'])
                     time.sleep(1.5)
