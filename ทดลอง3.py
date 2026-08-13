@@ -6,7 +6,6 @@ import time
 import json
 from datetime import datetime, date
 import pandas as pd
-from streamlit_autorefresh import st_autorefresh
 
 # --- ตั้งค่าหน้าตาเว็บไซต์รองรับ Mobile Screen ---
 st.set_page_config(
@@ -16,12 +15,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- รีเฟรชหน้าเว็บอัตโนมัติทุกๆ 5 วินาที เพื่อเช็คออเดอร์เข้าครัว ---
-st_autorefresh(interval=5000, key="kitchen_autorefresh")
-
+# --- เชื่อมต่อฐานข้อมูล (ปรับให้รองรับ Secrets หลายรูปแบบเพื่อป้องกัน KeyError) ---
 def get_db_connection():
-    # ดึงค่า URL จาก Secrets
-    db_url = st.secrets["postgres"]["url"]
+    db_url = None
+    if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
+        db_url = st.secrets["postgres"]["url"]
+    elif "postgres_url" in st.secrets:
+        db_url = st.secrets["postgres_url"]
+    elif "DATABASE_URL" in st.secrets:
+        db_url = st.secrets["DATABASE_URL"]
+    
+    if not db_url:
+        st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets กรุณาตรวจสอบการตั้งค่า Secrets บน Streamlit Cloud")
+        st.stop()
+        
     return psycopg2.connect(db_url)
 
 # ==========================================
@@ -523,6 +530,61 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที ---
+@st.fragment(run_every="5s")
+def render_kitchen_orders():
+    st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
+    st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
+        pending_orders = cur.fetchall()
+
+        if not pending_orders:
+            st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
+        else:
+            st.warning(f"⚠️ มีออเดอร์ค้างทำอยู่ **{len(pending_orders)}** รายการ")
+            for order in pending_orders:
+                order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
+                items = json.loads(items_json)
+                
+                with st.container(border=True):
+                    col_o1, col_o2 = st.columns([3, 1])
+                    with col_o1:
+                        st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
+                        item_summary_text = []
+                        for item in items:
+                            st.write(f"- **{item['name']}** ({item['price']} บาท)")
+                            item_summary_text.append(f"{item['name']}")
+                        
+                        st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
+
+                    with col_o2:
+                        if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
+                            cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
+                            
+                            combined_item_names = ", ".join(item_summary_text)
+                            total_profit = float(o_total_price) - float(o_total_cost)
+                            
+                            cur.execute('''
+                                INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                            ''', (str(date.today()), f"📱 {table_no}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
+                            
+                            conn.commit()
+                            st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
+                            time.sleep(0.5)
+                            st.rerun()
+
+        cur.close()
+        conn.close()
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการโหลดออเดอร์: {e}")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
 # --- เรียกใช้งานระบบฐานข้อมูล ---
 init_db()
 
@@ -679,62 +741,10 @@ else:
             st.session_state.clear()
             st.rerun()
 
-    # --- ส่วนที่เพิ่มใหม่: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า ---
-    st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
-    st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
+    # --- ส่วนที่ 0: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
+    render_kitchen_orders()
 
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
-        pending_orders = cur.fetchall()
-
-        if not pending_orders:
-            st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
-        else:
-            st.warning(f"⚠️ มีออเดอร์ค้างทำอยู่ **{len(pending_orders)}** รายการ")
-            for order in pending_orders:
-                order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
-                items = json.loads(items_json)
-                
-                with st.container(border=True):
-                    col_o1, col_o2 = st.columns([3, 1])
-                    with col_o1:
-                        st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
-                        item_summary_text = []
-                        for item in items:
-                            st.write(f"- **{item['name']}** ({item['price']} บาท)")
-                            item_summary_text.append(f"{item['name']}")
-                        
-                        st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
-
-                    with col_o2:
-                        if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
-                            # 1. เปลี่ยนสถานะออเดอร์เป็น completed
-                            cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
-                            
-                            # 2. บันทึกลงตารางยอดขาย (sales) หลังบ้านให้อัตโนมัติ
-                            combined_item_names = ", ".join(item_summary_text)
-                            total_profit = float(o_total_price) - float(o_total_cost)
-                            
-                            cur.execute('''
-                                INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                            ''', (str(date.today()), f"📱 {table_no}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
-                            
-                            conn.commit()
-                            st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
-                            time.sleep(0.5)
-                            st.rerun()
-
-        cur.close()
-        conn.close()
-    except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการโหลดออเดอร์: {e}")
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # --- ส่วนที่ 0: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
+    # --- ส่วนที่ 1: ตารางราคาเมนู (แก้ไขราคาได้ทันที) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
@@ -804,7 +814,7 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 1: บันทึกการขาย (ปุ่มกดการ์ดเมนูหน้าร้าน) ---
+    # --- ส่วนที่ 2: บันทึกการขาย (ปุ่มกดการ์ดเมนูหน้าร้าน) ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("🛒 บันทึกรายการขาย (หน้าร้าน)")
 
@@ -909,7 +919,7 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 2: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
+    # --- ส่วนที่ 3: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
     df_all = get_sales()
 
     if not df_all.empty and 'sale_date' in df_all.columns:
@@ -990,7 +1000,7 @@ else:
         st.info("ยังไม่มีข้อมูลรายการขายในระบบ")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 3: สรุปยอดขายรวมและอันดับขายดี ---
+    # --- ส่วนที่ 4: สรุปยอดขายรวมและอันดับขายดี ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📈 สรุปยอดขายรวม")
 
