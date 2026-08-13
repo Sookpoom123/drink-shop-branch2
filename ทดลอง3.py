@@ -815,7 +815,7 @@ else:
 
 if st.button("✅ บันทึกการขาย", use_container_width=True):
     item_name = f"{selected_item} (+ไข่มุก)" if add_pearl else selected_item
-  add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), "admin", payment_method)
+    add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), "admin", payment_method)
     st.success(f"🎉 บันทึก {item_name} ({qty} แก้ว) เรียบร้อย!")
     st.session_state.mobile_qty = 1
     time.sleep(0.5)
