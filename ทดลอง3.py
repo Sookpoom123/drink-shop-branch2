@@ -400,22 +400,23 @@ def set_user_offline(username):
     conn.commit()
     conn.close()
 
-def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name):
+def add_sale(sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('''
-        INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-    ''', (str(sale_date), item_name, qty, total_price, total_cost, total_profit, seller_name))
+        INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    ''', (str(sale_date), item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method))
     conn.commit()
     conn.close()
+    st.cache_data.clear() # เคลียร์แคชเพื่ออัปเดตยอดทันที
 
+@st.cache_data(ttl=10)
 def get_sales():
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM sales", conn)
     conn.close()
     return df
-
 def delete_sale_by_id(record_id):
     conn = get_db_connection()
     c = conn.cursor()
