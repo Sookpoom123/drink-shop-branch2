@@ -830,12 +830,10 @@ else:
                 add_sale(selected_date, item_name, qty, total_price, round(total_cost, 2), round(total_profit, 2), st.session_state.username, payment_method)
                 st.session_state.last_sale_msg = f"🎉 บันทึกสำเร็จ: {item_name} ({qty} แก้ว) รวม {total_price:.0f} บาท"
                 
-                # ลบ Key ออกเพื่อรีเซ็ตค่ากลับเป็น 1 โดยไม่เกิด StreamlitAPIException
                 if "mobile_qty" in st.session_state:
                     del st.session_state["mobile_qty"]
                     
                 st.rerun()
-
     if "last_sale_msg" in st.session_state:
         st.success(st.session_state.last_sale_msg)
 
