@@ -897,8 +897,9 @@ else:
                 with st.container():
                     c_info, c_del = st.columns([4, 1])
                     with c_info:
+                        seller = row['seller_name'] if pd.notna(row['seller_name']) and row['seller_name'] else "ไม่ระบุ"
                         st.markdown(f"**{row['item_name']}** ({row['qty']} แก้ว)")
-                        st.caption(f"ยอดขาย: {row['total_price']:,.0f} บ. | {row['payment_method']}")
+                        st.caption(f"ยอดขาย: {row['total_price']:,.0f} บ. | {row['payment_method']} | 👤 ผู้บันทึก: **{seller}**")
                     with c_del:
                         if st.button("❌", key=f"btn_del_row_{row['id']}"):
                             confirm_delete_dialog(row['id'], row['item_name'], row['qty'])
