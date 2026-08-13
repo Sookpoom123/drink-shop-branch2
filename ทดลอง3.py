@@ -301,7 +301,7 @@ def get_menu_from_db():
     conn.close()
     menu_dict = {}
     for r in rows:
-        menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2])}
+        menu_dict[r[0]] = {"cost": float(r[1]) if r[1] is not None else 0.0, "price": float(r[2])}
     return menu_dict
 
 @st.cache_data(ttl=5)
@@ -316,13 +316,13 @@ def get_toppings_from_db():
         toppings_dict[r[0]] = float(r[1])
     return toppings_dict
 
-def save_menu_item_db(name, cost, price):
+def save_menu_item_db(name, price, cost=0.0):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("""
         INSERT INTO menu_items (name, cost, price) 
         VALUES (%s, %s, %s)
-        ON CONFLICT (name) DO UPDATE SET cost = EXCLUDED.cost, price = EXCLUDED.price
+        ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
     """, (name, cost, price))
     conn.commit()
     conn.close()
@@ -812,7 +812,7 @@ else:
                     old_p = current_menu[m_name]["price"]
                     
                     if new_p != old_p:
-                        save_menu_item_db(m_name, old_c, new_p)
+                        save_menu_item_db(m_name, new_p, cost=old_c)
                         updated_count += 1
                 
                 if updated_count > 0:
@@ -964,16 +964,15 @@ else:
     with st.expander("⚙️ **จัดการระบบ (เมนู / ท็อปปิ้ง / สมาชิก)**", expanded=False):
         tab_add_menu, tab_del_menu, tab_topping, tab_users = st.tabs(["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "👥 สมาชิก"])
 
-        # TAB 1: เพิ่มเมนูใหม่
+        # TAB 1: เพิ่มเมนูใหม่ (เอาช่องกรอกราคาต้นทุนออกเรียบร้อย)
         with tab_add_menu:
             st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
-            new_cost = st.number_input("ราคาต้นทุน (บาท)", min_value=0.0, value=10.0, step=0.5, key="m_add_cost")
             new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=24, key="m_add_price")
             
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
-                    save_menu_item_db(new_name.strip(), new_cost, new_price)
+                    save_menu_item_db(new_name.strip(), new_price)
                     st.cache_data.clear()
                     st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
                     time.sleep(0.5)
