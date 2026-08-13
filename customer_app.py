@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง + ทำเส้นขอบล้อมรอบการ์ดเมนูทุกองค์ประกอบ ---
+# --- CSS ตกแต่งการ์ด ---
 st.markdown(
     """
     <style>
@@ -51,7 +51,6 @@ st.markdown(
         margin-bottom: 12px;
     }
 
-    /* ⚡ ล็อก Layout Grid 3 คอลัมน์ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -65,23 +64,20 @@ st.markdown(
         flex: 1 1 33.33% !important;
     }
 
-    /* 📦 กรอบการ์ดเมนูแบบมีเส้นขอบชัดเจน (รวมทุกอย่างไว้ในกล่องเดียว) */
     div[data-testid="stColumn"] > div {
         background-color: #FFFFFF !important;
-        border: 2px solid #C8B2A2 !important; /* เส้นขอบสีเข้มชัดเจน */
+        border: 2px solid #C8B2A2 !important;
         border-radius: 12px !important;
         padding: 8px 10px !important;
         box-shadow: 0 2px 6px rgba(140, 109, 88, 0.12) !important;
         margin-bottom: 6px !important;
     }
 
-    /* เส้นขีดแบ่งโซนภายในกล่องเมนู */
     .card-divider {
         border-top: 1px dashed #D3C4B8;
         margin: 6px 0;
     }
 
-    /* ปุ่มกดปรับให้เต็มความกว้างในกล่อง */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
@@ -97,10 +93,9 @@ st.markdown(
         background: #6E5341 !important;
     }
 
-    /* ปรับแต่ง Checkbox */
     div[data-testid="stCheckbox"] label span {
-        font-size: 12px !important;
-        font-weight: 500 !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
         color: #554840 !important;
     }
     
@@ -119,12 +114,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-PEARL_PRICE = 4.0  
-PEARL_COST = 1.0
+PEARL_PRICE = 5.0  # 👈 กำหนดราคาขายไข่มุกที่นี่ (เช่น 5 บาท)
+PEARL_COST = 1.0   # ต้นทุนไข่มุก
 
-# ==========================================
-# 🌐 พจนานุกรมแปลภาษา UI
-# ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
         "header_title": "🧋 เมนูเครื่องดื่ม",
@@ -246,9 +238,6 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# ==========================================
-# ⚡ ดึงเมนูแบบ Real-Time (TTL = 2 วินาที)
-# ==========================================
 @st.cache_data(ttl=2)
 def get_menu_from_db():
     try:
@@ -268,7 +257,6 @@ def get_menu_from_db():
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-# --- 🔘 เลือกภาษา ---
 selected_lang = st.segmented_control(
     "Language",
     options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文/EN"],
@@ -281,7 +269,6 @@ if not selected_lang:
 
 t = LANGUAGES[selected_lang]
 
-# --- Header ---
 st.markdown(
     f"""
     <div class="customer-header">
@@ -309,9 +296,6 @@ else:
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
-    # ==========================================
-    # 🍱 แสดงผลแบบ Card แยกกรอบชัดเจน 3 คอลัมน์
-    # ==========================================
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
@@ -322,7 +306,6 @@ else:
                 cost = info["cost"]
 
                 with cols[j]:
-                    # หัวข้อการ์ดเมนู + ราคา
                     st.markdown(
                         f"""
                         <div style="text-align: center;">
@@ -334,8 +317,9 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # ตัวเลือก + ปุ่มกด (ถูกรวบอยู่ในกรอบเดียวกัน)
-                    add_pearl = st.checkbox(f"{t['add_pearl']}", key=f"p_{item_name_th}")
+                    # 💡 แสดงผลราคาไข่มุกแบบ Dynamic ทันที
+                    pearl_label = f"{t['add_pearl']} (+{PEARL_PRICE:.0f} {t['baht']})"
+                    add_pearl = st.checkbox(pearl_label, key=f"p_{item_name_th}")
                     
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
                         final_price = price + (PEARL_PRICE if add_pearl else 0)
@@ -354,9 +338,7 @@ else:
                         time.sleep(0.2)
                         st.rerun()
 
-# ==========================================
-# 🛒 ตะกร้าสินค้า
-# ==========================================
+# --- ตะกร้าสินค้า ---
 st.divider()
 st.subheader(t['cart_title'])
 
