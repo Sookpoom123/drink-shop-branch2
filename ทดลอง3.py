@@ -119,9 +119,8 @@ load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
 
-# --- รายการเมนู 46 รายการจากป้ายหน้าร้าน ---
+# --- รายการเมนูตั้งต้น 46 รายการ (ใช้สร้างตารางกรณีเพิ่งเปิดฐานข้อมูลครั้งแรก) ---
 DEFAULT_MENU = {
-    # TAIWAN MILK TEA
     "ชานมไต้หวัน": {"cost": 8.0, "price": 19},
     "ชานมวนิลา": {"cost": 10.0, "price": 24},
     "ชานมคาราเมล": {"cost": 10.0, "price": 24},
@@ -134,13 +133,9 @@ DEFAULT_MENU = {
     "ชานมโกโก้": {"cost": 10.0, "price": 24},
     "ชานมโอวัลติน": {"cost": 10.0, "price": 24},
     "ชานมเผือก": {"cost": 10.0, "price": 24},
-
-    # COFFEE
     "โอเลี้ยง": {"cost": 8.0, "price": 19},
     "กาแฟโบราณ": {"cost": 10.0, "price": 24},
     "เนสกาแฟ": {"cost": 10.0, "price": 24},
-
-    # THAI TEA & GREEN TEA
     "ชาดำเย็น": {"cost": 8.0, "price": 19},
     "ชามะนาว": {"cost": 8.0, "price": 19},
     "ชาแดงน้ำผึ้งมะนาว": {"cost": 8.0, "price": 19},
@@ -149,22 +144,16 @@ DEFAULT_MENU = {
     "ชาเขียวมะนาว": {"cost": 8.0, "price": 19},
     "ชาเขียวน้ำผึ้งมะนาว": {"cost": 8.0, "price": 19},
     "ชาเขียวใส": {"cost": 8.0, "price": 19},
-
-    # OTHER / FRESH MILK
     "โกโก้": {"cost": 10.0, "price": 24},
     "นมชมพู": {"cost": 10.0, "price": 24},
     "โอวัลติน": {"cost": 10.0, "price": 24},
     "นมสดน้ำผึ้ง": {"cost": 10.0, "price": 24},
     "นมสดคาราเมล": {"cost": 10.0, "price": 24},
     "นมสดสีขาว": {"cost": 10.0, "price": 24},
-
-    # FRUIT TEA
     "ชาสตรอเบอร์รี่": {"cost": 8.0, "price": 19},
     "ชาลิ้นจี่": {"cost": 8.0, "price": 19},
     "ชาเมล่อน": {"cost": 8.0, "price": 19},
     "ชาแอปเปิ้ล": {"cost": 8.0, "price": 19},
-
-    # SMOOTHIE
     "กล้วยนมสดปั่น": {"cost": 15.0, "price": 34},
     "เผือกนมสดปั่น": {"cost": 15.0, "price": 34},
     "มะพร้าวนมสดปั่น": {"cost": 15.0, "price": 34},
@@ -180,14 +169,11 @@ DEFAULT_MENU = {
     "มัทฉะนมสดปั่น": {"cost": 18.0, "price": 44},
 }
 
-# --- รายการท็อปปิ้ง ---
 DEFAULT_TOPPINGS = {
-    # ท็อปปิ้ง 5 บาท
     "ไข่มุกสีดำ": 5.0,
     "ไข่มุกสีทอง": 5.0,
     "ฟรุ้ตสลัด": 5.0,
     "บุกนมสด": 5.0,
-    # ท็อปปิ้ง 10 บาท
     "บุกเฉาก๊วย": 10.0,
     "บุกน้ำผึ้ง": 10.0,
     "บุกบราวน์ชูการ์": 10.0
@@ -200,7 +186,6 @@ def init_db():
     conn = get_db_connection()
     c = conn.cursor()
     
-    # 1. ตาราง sales
     c.execute('''
         CREATE TABLE IF NOT EXISTS sales (
             id SERIAL PRIMARY KEY,
@@ -215,7 +200,6 @@ def init_db():
         )
     ''')
     
-    # 2. ตาราง users
     c.execute('''
         CREATE TABLE IF NOT EXISTS users (
             username TEXT PRIMARY KEY,
@@ -226,7 +210,6 @@ def init_db():
         )
     ''')
     
-    # 3. ตาราง orders (สำหรับแอปฝั่งลูกค้า)
     c.execute('''
         CREATE TABLE IF NOT EXISTS orders (
             id SERIAL PRIMARY KEY,
@@ -239,7 +222,6 @@ def init_db():
         )
     ''')
 
-    # 4. ตาราง menu_items
     c.execute('''
         CREATE TABLE IF NOT EXISTS menu_items (
             name TEXT PRIMARY KEY,
@@ -248,7 +230,6 @@ def init_db():
         )
     ''')
 
-    # 5. ตาราง toppings
     c.execute('''
         CREATE TABLE IF NOT EXISTS toppings (
             name TEXT PRIMARY KEY,
@@ -256,14 +237,13 @@ def init_db():
         )
     ''')
     
-    # เติมข้อมูลเมนูเริ่มต้น
+    # เติมข้อมูลเริ่มต้นถ้ายังไม่มีข้อมูลในระบบเลย
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
         for name, info in DEFAULT_MENU.items():
             c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
                         (name, info['cost'], info['price']))
 
-    # เติมข้อมูลท็อปปิ้งเริ่มต้น
     c.execute("SELECT COUNT(*) FROM toppings")
     if c.fetchone()[0] == 0:
         for name, price in DEFAULT_TOPPINGS.items():
@@ -272,20 +252,6 @@ def init_db():
             
     conn.commit()
     conn.close()
-
-def reset_and_sync_all_menu():
-    """ฟังก์ชั่นสำหรับซิงค์เมนูใหม่ทั้ง 46 รายการเข้า Database"""
-    conn = get_db_connection()
-    c = conn.cursor()
-    for name, info in DEFAULT_MENU.items():
-        c.execute("""
-            INSERT INTO menu_items (name, cost, price)
-            VALUES (%s, %s, %s)
-            ON CONFLICT (name) DO UPDATE SET cost = EXCLUDED.cost, price = EXCLUDED.price
-        """, (name, info['cost'], info['price']))
-    conn.commit()
-    conn.close()
-    st.cache_data.clear()
 
 def reset_and_sync_toppings():
     """ฟังก์ชั่นสำหรับซิงค์ท็อปปิ้งจากป้ายร้านเข้า Database"""
@@ -328,7 +294,7 @@ def get_user_profile_img(username):
         return row[0]
     return None
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -340,7 +306,7 @@ def get_menu_from_db():
         menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2])}
     return menu_dict
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def get_toppings_from_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -362,7 +328,7 @@ def save_menu_item_db(name, cost, price):
     """, (name, cost, price))
     conn.commit()
     conn.close()
-    st.cache_data.clear()
+    st.cache_data.clear()  # ⚡ ล้างแคชทันทีเพื่อให้หน้าเว็บโหลดเมนูใหม่ขึ้นมาทันที
 
 def save_topping_db(name, price):
     conn = get_db_connection()
@@ -609,7 +575,6 @@ def render_kitchen_orders():
                             has_topping = (topping_val and topping_val != "ไม่ใส่ท็อปปิ้ง") or ("(+" in item_display)
                             
                             if not has_topping:
-                                # ถ้าไม่ได้ใส่ท็อปปิ้ง แสดงคำว่า (ไม่ใส่ท็อปปิ้ง) ต่อท้าย
                                 full_item_text = f"{item_display} (ไม่ใส่ท็อปปิ้ง)"
                             else:
                                 full_item_text = item_display
@@ -861,6 +826,7 @@ else:
                         updated_count += 1
                 
                 if updated_count > 0:
+                    st.cache_data.clear()
                     st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
                     time.sleep(0.5)
                     st.rerun()
@@ -1006,20 +972,11 @@ else:
     # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู, ท็อปปิ้ง & สมาชิก)
     # ==========================================
     with st.expander("⚙️ **จัดการระบบ (เมนู / ท็อปปิ้ง / สมาชิก)**", expanded=False):
-        tab_add_menu, tab_del_menu, tab_topping, tab_users = st.tabs(["➕ เพิ่ม/ซิงค์เมนู", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "👥 สมาชิก"])
+        tab_add_menu, tab_del_menu, tab_topping, tab_users = st.tabs(["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "👥 สมาชิก"])
 
-        # TAB 1: เพิ่ม/ซิงค์เมนู
+        # TAB 1: เพิ่มเมนูใหม่
         with tab_add_menu:
-            if st.session_state.role == "admin":
-                st.write("🔄 **อัปเดตเมนูใหม่ทั้งหมด (46 รายการจากป้ายร้าน):**")
-                if st.button("⚡ ซิงค์เมนู 46 รายการใหม่เข้า Database ทันที", use_container_width=True, key="btn_sync_all_46"):
-                    reset_and_sync_all_menu()
-                    st.success("🎉 ซิงค์รายการเมนูใหม่ทั้ง 46 รายการเข้าฐานข้อมูลเรียบร้อยแล้ว!")
-                    time.sleep(0.5)
-                    st.rerun()
-                st.divider()
-
-            st.write("➕ **เพิ่มเมนูแบบกำหนดเอง:**")
+            st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
             new_cost = st.number_input("ราคาต้นทุน (บาท)", min_value=0.0, value=10.0, step=0.5, key="m_add_cost")
             new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=24, key="m_add_price")
@@ -1027,7 +984,9 @@ else:
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
                     save_menu_item_db(new_name.strip(), new_cost, new_price)
-                    st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อย!")
+                    st.cache_data.clear()  # ⚡ ล้าง Cache ทันทีเพื่อให้เด้งแสดงผลเลย
+                    st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
+                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
@@ -1061,7 +1020,9 @@ else:
                 if st.button("💾 บันทึกท็อปปิ้ง", use_container_width=True, key="btn_save_t"):
                     if t_name.strip() != "":
                         save_topping_db(t_name.strip(), t_price)
+                        st.cache_data.clear()
                         st.success(f"บันทึกท็อปปิ้ง '{t_name}' เรียบร้อย!")
+                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.warning("กรุณากรอกชื่อท็อปปิ้ง")
