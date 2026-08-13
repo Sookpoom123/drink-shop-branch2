@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS บังคับ Grid 3 คอลัมน์บนมือถือโดยเฉพาะ ---
+# --- CSS บังคับ Grid 3 คอลัมน์ ---
 st.markdown(
     """
     <style>
@@ -51,7 +51,6 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* ⚡ ปลดล็อก Streamlit Columns ให้แสดงแบบ 3 ช่องบนมือถือ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
@@ -65,7 +64,6 @@ st.markdown(
         flex: 1 1 33.33% !important;
     }
 
-    /* ตกแต่งการ์ดเมนูขนาดเล็ก */
     .menu-box {
         background-color: #FFFFFF;
         border: 1px solid #EADFD8;
@@ -76,7 +74,6 @@ st.markdown(
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     }
 
-    /* ปรับปุ่มให้เล็กพอดีช่องมือถือ */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
@@ -90,7 +87,6 @@ st.markdown(
         min-height: 28px !important;
     }
 
-    /* ย่อขนาดตัวหนังสือ Checkbox ไข่มุก */
     div[data-testid="stCheckbox"] label span {
         font-size: 10px !important;
         padding-left: 2px !important;
@@ -115,7 +111,7 @@ PEARL_PRICE = 4.0
 PEARL_COST = 1.0
 
 # ==========================================
-# 🌐 พจนานุกรมแปลภาษา
+# 🌐 พจนานุกรมแปลภาษา UI
 # ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
@@ -180,7 +176,11 @@ LANGUAGES = {
     }
 }
 
+# ==========================================
+# 📖 พจนานุกรมแปลเมนู (เพิ่มครบทุกเมนูตามภาพ)
+# ==========================================
 MENU_TRANSLATIONS = {
+    # เมนูพื้นฐาน
     "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文/EN": "冰红茶 Tea"},
     "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文/EN": "柠檬茶 Lemon Tea"},
     "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "柠檬绿 Lemon Green"},
@@ -194,8 +194,58 @@ MENU_TRANSLATIONS = {
     "ชาไต้หวัน": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည်", "🇨🇳 中文/EN": "台湾奶茶 Taiwan Tea"},
     "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "泰奶 Thai Milk Tea"},
     "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "绿奶茶 Green Milk"},
-    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文/EN": "香蕉鲜奶 Banana Milk"}
+    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文/EN": "香蕉鲜奶 Banana Milk"},
+
+    # เมนูชาแคนตาลูป / ชาแดง / ชานมต่างๆ (จากในรูปภาพ)
+    "ชาแคนตาลูป(แคนตาลูป)": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
+    "ชาแคนตาลูป": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
+    "ชาแดงน้ำผึ้งมะนาว": {"🇲🇲 Myanmar": "ပျားရည် သံပုရာ လက်ဖက်နီ", "🇨🇳 中文/EN": "蜂蜜柠檬红茶 Honey Lemon Red Tea"},
+    "ชาแดงปั่น": {"🇲🇲 Myanmar": "လက်ဖက်နီ ဖျော်စက်", "🇨🇳 中文/EN": "冰沙红茶 Red Tea Smoothie"},
+    "ชาไต้หวันบราวน์ชูการ์ปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား ဖျော်စက်", "🇨🇳 中文/EN": "黑糖台湾奶茶冰沙 Brown Sugar Milk Tea Smoothie"},
+    "ชาไต้หวันปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည် ဖျော်စက်", "🇨🇳 中文/EN": "台湾奶茶冰沙 Taiwan Milk Tea Smoothie"},
+    "ชานมกาแฟ": {"🇲🇲 Myanmar": "နို့ ကော်ဖီ", "🇨🇳 中文/EN": "咖啡奶茶 Coffee Milk Tea"},
+    "ชานมโกโก้": {"🇲🇲 Myanmar": "နို့ ကိုကိုး", "🇨🇳 中文/EN": "可可奶茶 Cocoa Milk Tea"},
+    "ชานมโกโก้ปั่น": {"🇲🇲 Myanmar": "နို့ ကိုကိုး ဖျော်စက်", "🇨🇳 中文/EN": "可可奶茶冰沙 Cocoa Milk Tea Smoothie"},
+    "ชานมคาราเมล": {"🇲🇲 Myanmar": "ကာရာမဲလ် နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "焦糖奶茶 Caramel Milk Tea"},
+    "ชานมไต้หวันบราวน์ชูการ์": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "黑糖台湾奶茶 Brown Sugar Taiwan Milk Tea"},
+    "ชานมน้ำผึ้ง": {"🇲🇲 Myanmar": "ပျားရည် နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "蜂蜜奶茶 Honey Milk Tea"},
+    "ชานมผลไม้": {"🇲🇲 Myanmar": "သစ်သီး နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "水果奶茶 Fruit Milk Tea"},
+    "ชานมเผือก": {"🇲🇲 Myanmar": "ပိန်းဥ နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "香芋奶茶 Taro Milk Tea"}
 }
+
+# คำศัพท์พื้นฐานสำหรับการแปลคำผสมอัตโนมัติ (Dynamic Fallback Translation)
+WORD_MAP = {
+    "🇲🇲 Myanmar": {
+        "ชา": "လက်ဖက်ရည်", "นม": "နို့", "เขียว": "စိမ်း", "แดง": "နီ", 
+        "ไต้หวัน": "ထိုင်ဝမ်", "ปั่น": "ဖျော်စက်", "มะนาว": "သံပုရာ", 
+        "น้ำผึ้ง": "ပျားရည်", "เผือก": "ပိန်းဥ", "โกโก้": "ကိုကိုး", 
+        "กาแฟ": "ကော်ဖီ", "คาราเมล": "ကာရာမဲလ်", "บราวน์ชูการ์": "စိမ်းလမ်း သကြား"
+    },
+    "🇨🇳 中文/EN": {
+        "ชา": "Tea", "นม": "Milk", "เขียว": "Green", "แดง": "Red", 
+        "ไต้หวัน": "Taiwan", "ปั่น": "Smoothie", "มะนาว": "Lemon", 
+        "น้ำผึ้ง": "Honey", "เผือก": "Taro", "โกโก้": "Cocoa", 
+        "กาแฟ": "Coffee", "คาราเมล": "Caramel", "บราวน์ชูการ์": "Brown Sugar"
+    }
+}
+
+def translate_item(name_th, lang):
+    """ฟังก์ชันช่วยแปลชื่อเมนู ถ้าไม่มีในพจนานุกรมตรงๆ จะพยายามแปลคำประกอบ"""
+    if lang == "🇹🇭 ไทย":
+        return name_th
+        
+    # 1. เช็กจากพจนานุกรมหลักก่อน
+    if name_th in MENU_TRANSLATIONS and lang in MENU_TRANSLATIONS[name_th]:
+        return MENU_TRANSLATIONS[name_th][lang]
+        
+    # 2. แปลอัตโนมัติตามคำศัพท์ย่อย (Fallback)
+    result = name_th
+    words = WORD_MAP.get(lang, {})
+    for th_word, target_word in words.items():
+        if th_word in result:
+            result = result.replace(th_word, f" {target_word} ")
+            
+    return result.strip()
 
 # ==========================================
 # ⚡ ดึงเมนูแบบ Real-Time (TTL = 2 วินาที)
@@ -255,17 +305,14 @@ if not current_menu:
 else:
     filtered_items = []
     for item_name_th, info in current_menu.items():
-        display_name = item_name_th
-        if selected_lang in ["🇲🇲 Myanmar", "🇨🇳 中文/EN"]:
-            translated = MENU_TRANSLATIONS.get(item_name_th, {}).get(selected_lang)
-            if translated:
-                display_name = f"{translated}"
+        # เรียกใช้ฟังก์ชันแปลภาษาแบบไดนามิก
+        display_name = translate_item(item_name_th, selected_lang)
 
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
     # ==========================================
-    # 🍱 บังคับแบ่ง 3 ช่องบนมือถือ
+    # 🍱 แสดงผล 3 เมนูต่อแถว
     # ==========================================
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
@@ -280,7 +327,7 @@ else:
                     st.markdown(
                         f"""
                         <div class="menu-box">
-                            <div style="font-weight: bold; font-size: 11px; height: 28px; overflow: hidden; line-height: 1.1;">{display_name}</div>
+                            <div style="font-weight: bold; font-size: 11px; height: 30px; overflow: hidden; line-height: 1.1;">{display_name}</div>
                             <div style="color: #8C6D58; font-weight: bold; font-size: 11px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                         </div>
                         """, 
