@@ -90,7 +90,7 @@ st.markdown(
         background: #6E5341 !important;
     }
 
-    /* ⚡ ปรับแต่ง Multiselect (เลือกท็อปปิ้งได้หลายรายการ) ⚡ */
+    /* ⚡ ปรับแต่ง Multiselect ⚡ */
     div[data-testid="stMultiSelect"] label {
         font-size: 11px !important;
         font-weight: 600 !important;
@@ -354,6 +354,11 @@ else:
                 price = info["price"]
                 cost = info["cost"]
 
+                # ⚡ สร้าง Counter สำหรับทำ Key ไดนามิก (แก้ปัญหา Error)
+                counter_key = f"counter_{item_name_th}"
+                if counter_key not in st.session_state:
+                    st.session_state[counter_key] = 0
+
                 with cols[j]:
                     st.markdown(
                         f"""
@@ -367,11 +372,12 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # 🌟 เลือกท็อปปิ้งได้มากกว่า 1 รายการต่อแก้ว
+                    # 🌟 ใช้ Key แบบไดนามิกที่ต่อท้ายด้วยตัวเลข Counter
+                    multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
                         options=topping_options, 
-                        key=f"tp_{item_name_th}",
+                        key=multiselect_key,
                         placeholder=t['no_topping']
                     )
                     
@@ -403,8 +409,8 @@ else:
                             "cost": final_cost
                         })
 
-                        # ⚡ ล้างค่าตัวเลือกท็อปปิ้งที่เลือกไว้หลังกดสั่ง ให้กลับมาเป็นช่องว่าง
-                        st.session_state[f"tp_{item_name_th}"] = []
+                        # ⚡ ปรับค่า Counter เพิ่มขึ้น 1 เพื่อรีเซ็ตช่อง Multiselect เป็นช่องว่างทันทีโดยไม่ติด Error
+                        st.session_state[counter_key] += 1
 
                         st.toast(f"{t['toast_added']}", icon="🛒")
                         time.sleep(0.2)
