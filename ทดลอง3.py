@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import psycopg2
-from psycopg2 import pool
 import streamlit as st
 import time
 import json
@@ -74,7 +73,7 @@ TRANSLATION_MAP = {
     "သံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวมะนาว", "ပျားသံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวน้ำผึ้งมะนาว", "လက်ဖက်ရည်စိမ်း": "ชาเขียวใส",
     "ကိုကိုး": "โกโก้", "နို့န်းရောင်": "นมชมพู", "အိုဗာတင်း": "โอวัลติน", "ပျားရည် နို့စိမ်း": "นมสดน้ำผึ้ง",
     "ကာရာမဲလ် နို့စိမ်း": "นมสดคาราเมล", "နို့စိမ်း": "นมสดสีขาว", "စထရော်ဘယ်ရီ လက်ဖက်ရည်": "ชาสตรอเบอร์รี่",
-    "လိုင်ချီး လက်ဖက်ရည်": "ชาลิ้นจี่", "ဖရဲသီး လက်ဖက်ရည်": "ชาเมล่อน", "ပန်းသီး လက်ဖက်ရည်": "ชาแอปเปိလ",
+    "လိုင်ချီး လက်ဖက်ရည်": "ชาลิ้นจี่", "ဖရဲသီး လက်ဖက်ရည်": "ชาเมล่อน", "ပန်းသီး လက်ဖက်ရည်": "ชาဥပိလ",
     "ပိန်းဥ နို့စိမ်းဖျော်ရည်": "เผือกนมสดปั่น", "အုန်းသီး နို့စိမ်းဖျော်ရည်": "มะพร้าวนมสดปั่น", "ဖရဲသီး နို့စိမ်းဖျော်ရည်": "เมล่อนนมสดปั่น",
     "ကန်စွန်းဥဝါ နို့စိမ်းဖျော်ရည်": "มันม่วงนมสดปั่น", "စထရော်ဘယ်ရီ နို့စိမ်းဖျော်ရည်": "สตรอเบอร์รี่นมสดปั่น",
     "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
@@ -82,7 +81,7 @@ TRANSLATION_MAP = {
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
     "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု้ตสลัด",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
-    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ်", "အပိုမပါ": "ไม่ใส่ท็อปปิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
+    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ์", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
 }
 
 def translate_to_thai(text):
@@ -105,11 +104,8 @@ def translate_to_thai(text):
             
     return " ".join(dedup_words)
 
-# ==========================================
-# ⚡ Database Connection Pool (เร่งความเร็ว 10x)
-# ==========================================
-@st.cache_resource
-def init_connection_pool():
+# --- เชื่อมต่อฐานข้อมูล (รองรับ Secrets หลายรูปแบบ) ---
+def get_db_connection():
     db_url = None
     if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
         db_url = st.secrets["postgres"]["url"]
@@ -122,16 +118,7 @@ def init_connection_pool():
         st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets กรุณาตรวจสอบการตั้งค่า Secrets บน Streamlit Cloud")
         st.stop()
         
-    return pool.ThreadedConnectionPool(1, 10, db_url)
-
-db_pool = init_connection_pool()
-
-def get_db_connection():
-    return db_pool.getconn()
-
-def release_db_connection(conn):
-    if conn:
-        db_pool.putconn(conn)
+    return psycopg2.connect(db_url)
 
 # ==========================================
 # 🎨 CSS Optimization
@@ -284,7 +271,6 @@ DEFAULT_TOPPINGS = {
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
-@st.cache_resource
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -365,8 +351,7 @@ def init_db():
                         (name, price))
             
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
 
 def reset_and_sync_toppings():
     conn = get_db_connection()
@@ -378,8 +363,7 @@ def reset_and_sync_toppings():
             ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
         """, (name, price))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 def update_user_activity(username):
@@ -389,8 +373,7 @@ def update_user_activity(username):
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         c.execute("UPDATE users SET last_active = %s WHERE username = %s", (now_str, username))
         conn.commit()
-        c.close()
-        release_db_connection(conn)
+        conn.close()
 
 def update_user_profile_img(username, img_bytes):
     encoded_img = base64.b64encode(img_bytes).decode('utf-8')
@@ -398,41 +381,37 @@ def update_user_profile_img(username, img_bytes):
     c = conn.cursor()
     c.execute("UPDATE users SET profile_img = %s WHERE username = %s", (encoded_img, username))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
 
 def get_user_profile_img(username):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT profile_img FROM users WHERE username = %s", (username,))
     row = c.fetchone()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     if row and row[0]:
         return row[0]
     return None
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
     rows = c.fetchall()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     menu_dict = {}
     for r in rows:
         menu_dict[r[0]] = {"cost": float(r[1]) if r[1] is not None else 0.0, "price": float(r[2])}
     return menu_dict
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=5)
 def get_toppings_from_db():
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
     rows = c.fetchall()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     toppings_dict = {}
     for r in rows:
         toppings_dict[r[0]] = float(r[1])
@@ -447,8 +426,7 @@ def save_menu_item_db(name, price, cost=0.0):
         ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
     """, (name, cost, price))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 def save_topping_db(name, price):
@@ -460,8 +438,7 @@ def save_topping_db(name, price):
         ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
     """, (name, price))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 def delete_menu_item_db(name):
@@ -469,8 +446,7 @@ def delete_menu_item_db(name):
     c = conn.cursor()
     c.execute("DELETE FROM menu_items WHERE name = %s", (name,))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 def delete_topping_db(name):
@@ -478,8 +454,7 @@ def delete_topping_db(name):
     c = conn.cursor()
     c.execute("DELETE FROM toppings WHERE name = %s", (name,))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 def add_user(username, password, role='user'):
@@ -490,12 +465,10 @@ def add_user(username, password, role='user'):
         c.execute('INSERT INTO users (username, password, role, last_active) VALUES (%s, %s, %s, %s)', 
                     (username, make_hashes(password), role, now_str))
         conn.commit()
-        c.close()
-        release_db_connection(conn)
+        conn.close()
         return True
     except psycopg2.IntegrityError:
-        c.close()
-        release_db_connection(conn)
+        conn.close()
         return False
 
 def login_user(username, password):
@@ -504,8 +477,7 @@ def login_user(username, password):
     c.execute('SELECT username, role FROM users WHERE username = %s AND password = %s',
                 (username, make_hashes(password)))
     data = c.fetchone()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     return data
 
 def get_user_role(username):
@@ -513,8 +485,7 @@ def get_user_role(username):
     c = conn.cursor()
     c.execute('SELECT role FROM users WHERE username = %s', (username,))
     data = c.fetchone()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     return data[0] if data else "user"
 
 def get_all_users_with_status():
@@ -522,8 +493,7 @@ def get_all_users_with_status():
     c = conn.cursor()
     c.execute('SELECT username, role, last_active FROM users')
     rows = c.fetchall()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
 
     users_status = []
     now = datetime.now()
@@ -552,22 +522,20 @@ def delete_user(username):
     c = conn.cursor()
     c.execute('DELETE FROM users WHERE username = %s', (username,))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
 
 def set_user_offline(username):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("UPDATE users SET last_active = NULL WHERE username = %s", (username,))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
 
 @st.cache_data(ttl=5)
 def get_sales():
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM sales", conn)
-    release_db_connection(conn)
+    conn.close()
     return df
 
 def delete_sale_by_id(record_id):
@@ -575,8 +543,7 @@ def delete_sale_by_id(record_id):
     c = conn.cursor()
     c.execute("DELETE FROM sales WHERE id = %s", (record_id,))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 def add_expense(expense_date, title, amount, note, recorded_by):
@@ -587,15 +554,14 @@ def add_expense(expense_date, title, amount, note, recorded_by):
         VALUES (%s, %s, %s, %s, %s)
     ''', (str(expense_date), title, amount, note, recorded_by))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
 
 @st.cache_data(ttl=5)
 def get_expenses():
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM expenses ORDER BY id DESC", conn)
-    release_db_connection(conn)
+    conn.close()
     return df
 
 def delete_expense_by_id(record_id):
@@ -603,9 +569,36 @@ def delete_expense_by_id(record_id):
     c = conn.cursor()
     c.execute("DELETE FROM expenses WHERE id = %s", (record_id,))
     conn.commit()
-    c.close()
-    release_db_connection(conn)
+    conn.close()
     st.cache_data.clear()
+
+def complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, items_count, o_total_price, o_total_cost):
+    """ฟังก์ชันจัดการย้ายออเดอร์จากครัวลงตาราง Sales อย่างปลอดภัย"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
+        
+        combined_item_names = ", ".join(item_summary_text)
+        total_price_f = float(o_total_price) if o_total_price is not None else 0.0
+        total_cost_f = float(o_total_cost) if o_total_cost is not None else 0.0
+        total_profit = total_price_f - total_cost_f
+        
+        cur.execute('''
+            INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (str(date.today()), f"📱 {table_no_translated}: {combined_item_names}", items_count, total_price_f, total_cost_f, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
+        
+        conn.commit()
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        conn.rollback()
+        st.error(f"เกิดข้อผิดพลาดในการทำรายการ: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()
 
 # ==========================================
 # 🔔 POP-UP DIALOGS
@@ -718,12 +711,13 @@ def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
     st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
 
-    conn = None
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
         pending_orders = cur.fetchall()
+        cur.close()
+        conn.close()
 
         if not pending_orders:
             st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
@@ -733,13 +727,21 @@ def render_kitchen_orders():
                 order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
                 table_no_translated = translate_to_thai(table_no)
                 
-                items = json.loads(items_json) if isinstance(items_json, str) else items_json
+                # แปลง JSON ป้องกัน Error
+                if isinstance(items_json, str):
+                    try:
+                        items = json.loads(items_json)
+                    except json.JSONDecodeError:
+                        items = []
+                else:
+                    items = items_json if items_json else []
                 
                 with st.container(border=True):
                     col_o1, col_o2 = st.columns([3, 1])
+                    item_summary_text = []
+
                     with col_o1:
                         st.markdown(f"### 📌 **{table_no_translated}** (ออเดอร์ #{order_id})")
-                        item_summary_text = []
                         
                         for item in items:
                             raw_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
@@ -763,26 +765,13 @@ def render_kitchen_orders():
 
                     with col_o2:
                         if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
-                            cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
-                            
-                            combined_item_names = ", ".join(item_summary_text)
-                            total_profit = float(o_total_price) - float(o_total_cost) if o_total_cost else float(o_total_price)
-                            
-                            cur.execute('''
-                                INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                            ''', (str(date.today()), f"📱 {table_no_translated}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
-                            
-                            conn.commit()
-                            st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
-                            time.sleep(0.5)
-                            st.rerun()
+                            if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost):
+                                st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
+                                time.sleep(0.5)
+                                st.rerun()
 
-        cur.close()
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดออเดอร์: {e}")
-    finally:
-        release_db_connection(conn)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -989,7 +978,7 @@ else:
                 updated_count = 0
                 for _, row in edited_df.iterrows():
                     m_name = row["เมนู"]
-                    new_p = row["ราคาปกติ"]
+                    new_p = float(row["ราคาปกติ"])
                     
                     old_c = current_menu[m_name]["cost"]
                     old_p = current_menu[m_name]["price"]
@@ -1088,7 +1077,7 @@ else:
     st.divider()
 
     # --- รายการขายประจำวัน ---
-    st.subheader("📋 รายละเอียดรายการขายประจำวัน")
+    st.subheader("📋 รายรายละเอียดรายการขายประจำวัน")
     if not df_day_sales.empty:
         for index, row in df_day_sales.iterrows():
             with st.container():
@@ -1173,7 +1162,7 @@ else:
             
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
-                    save_menu_item_db(new_name.strip(), new_price)
+                    save_menu_item_db(new_name.strip(), float(new_price))
                     st.cache_data.clear()
                     st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
                     time.sleep(0.5)
@@ -1209,7 +1198,7 @@ else:
                 t_price = st.number_input("ราคาบวกเพิ่ม (บาท)", min_value=0.0, value=5.0, step=1.0, key="t_add_price")
                 if st.button("💾 บันทึกท็อปปิ้ง", use_container_width=True, key="btn_save_t"):
                     if t_name.strip() != "":
-                        save_topping_db(t_name.strip(), t_price)
+                        save_topping_db(t_name.strip(), float(t_price))
                         st.cache_data.clear()
                         st.success(f"บันทึกท็อปปิ้ง '{t_name}' เรียบร้อย!")
                         time.sleep(0.5)
@@ -1238,7 +1227,7 @@ else:
 
             if st.button("💾 บันทึกรายจ่าย", use_container_width=True, key="btn_save_expense"):
                 if exp_title.strip() != "":
-                    add_expense(exp_date, exp_title.strip(), exp_amount, exp_note.strip(), st.session_state.username)
+                    add_expense(exp_date, exp_title.strip(), float(exp_amount), exp_note.strip(), st.session_state.username)
                     st.success(f"บันทึกรายจ่าย '{exp_title}' จำนวน {exp_amount:,.0f} บาท เรียบร้อย!")
                     time.sleep(0.5)
                     st.rerun()
