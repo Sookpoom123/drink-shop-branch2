@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (จัด 3 เมนู/แถว บนมือถือแบบสบายตา) ---
+# --- CSS ตกแต่ง (ล็อกไม่ให้จอล้นซ้ายขวา 100%) ---
 st.markdown(
     """
     <style>
@@ -37,11 +37,21 @@ st.markdown(
     footer { visibility: hidden; }
     header[data-testid="stHeader"] { visibility: hidden !important; }
 
-    /* ป้องกัน Scrollbar แนวนอน */
+    /* 🔒 ป้องกัน Scrollbar แนวนอนเด็ดขาด */
     html, body, .stApp {
         overflow-x: hidden !important;
+        max-width: 100vw !important;
         background-color: #F4EFEA !important;
         color: #3D342F !important;
+    }
+
+    .main .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
     }
 
     .customer-header {
@@ -53,23 +63,17 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* ⚡ ล็อก Layout Grid 3 คอลัมน์ให้พอดีจอมือถือไม่ล้น ⚡ */
+    /* ⚡ จัด Layout Columns ไม่ให้ดันขอบจอ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 4px !important;
+        flex-wrap: wrap !important; /* ยอมให้ตกบรรทัดถ้าล้น */
+        gap: 6px !important;
         width: 100% !important;
+        max-width: 100% !important;
     }
 
-    div[data-testid="column"] {
-        flex: 1 1 33.33% !important;
-        min-width: 0 !important;
-        max-width: 33.33% !important;
-        padding: 0 !important;
-    }
-
-    /* 📦 การ์ดเมนูเครื่องดื่ม (ปรับให้กะทัดรัด) */
+    /* การ์ดเมนูเครื่องดื่ม */
     .menu-card {
         background-color: #FFFFFF !important;
         border: 1.5px solid #C8B2A2 !important;
@@ -92,39 +96,18 @@ st.markdown(
         color: #FFFFFF !important;
         border-radius: 6px !important;
         font-weight: 600 !important;
-        font-size: 11px !important;
+        font-size: 12px !important;
         padding: 2px 0px !important;
         border: none !important;
         width: 100% !important;
-        min-height: 28px !important;
+        min-height: 32px !important;
     }
 
     div.stButton > button:hover {
         background: #6E5341 !important;
     }
 
-    /* ⚡ ปรับแต่ง Multiselect สำหรับ 3 คอลัมน์ ⚡ */
-    div[data-testid="stMultiSelect"] label {
-        font-size: 10px !important;
-        font-weight: 600 !important;
-        color: #554840 !important;
-        margin-bottom: 0px !important;
-    }
-
-    div[data-testid="stMultiSelect"] div[data-baseweb="select"] {
-        min-height: 28px !important;
-        padding: 0px !important;
-    }
-
-    div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
-        background-color: #8C6D58 !important;
-        color: #FFFFFF !important;
-        font-size: 9px !important;
-        border-radius: 3px !important;
-        padding: 0 2px !important;
-    }
-
-    /* 🛒 กรอบใหญ่ใบเสร็จตะกร้าสินค้า */
+    /* ตะกร้าสินค้า */
     .cart-container {
         background-color: #FFFFFF !important;
         border: 2px solid #C8B2A2 !important;
@@ -134,27 +117,6 @@ st.markdown(
         margin-top: 8px !important;
         width: 100% !important;
         box-sizing: border-box !important;
-    }
-
-    .cart-container div.stButton > button {
-        background: #F8D7DA !important;
-        color: #842029 !important;
-        border-radius: 6px !important;
-        font-size: 11px !important;
-        padding: 0px !important;
-        min-height: 24px !important;
-    }
-    
-    .cart-container div.stButton > button:hover {
-        background: #F5C2C7 !important;
-    }
-
-    .block-container {
-        padding-top: 0.2rem !important;
-        padding-bottom: 1.5rem !important;
-        padding-left: 0.2rem !important;
-        padding-right: 0.2rem !important;
-        max-width: 100% !important;
     }
     </style>
     """, 
@@ -298,7 +260,6 @@ def load_db_data():
         conn = get_db_connection()
         c = conn.cursor()
         
-        # 1. ดึงเมนู
         try:
             c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
             menu_rows = c.fetchall()
@@ -306,7 +267,6 @@ def load_db_data():
         except Exception as e:
             st.error(f"❌ Error ดึงข้อมูลเมนู: {e}")
             
-        # 2. ดึงท็อปปิ้ง
         try:
             c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
             topping_rows = c.fetchall()
@@ -340,7 +300,7 @@ t = LANGUAGES[selected_lang]
 st.markdown(
     f"""
     <div class="customer-header">
-        <h3 style="margin: 0; font-size: 15px; font-weight: 700;">{t['header_title']}</h3>
+        <h3 style="margin: 0; font-size: 16px; font-weight: 700;">{t['header_title']}</h3>
     </div>
     """, 
     unsafe_allow_html=True
@@ -353,8 +313,6 @@ with col_top2:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 current_menu, current_toppings = load_db_data()
-
-# รายการตัวเลือกท็อปปิ้งสำหรับ Multiselect
 topping_options = [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
 
 if not current_menu:
@@ -363,12 +321,11 @@ else:
     filtered_items = []
     for item_name_th, info in current_menu.items():
         display_name = translate_item(item_name_th, selected_lang)
-
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
-    # ⚡ กำหนดเป็น 3 เมนูต่อแถว
-    NUM_COLS = 3
+    # 💡 ปรับเป็น 2 คอลัมน์ (NUM_COLS = 2) เพื่อความสวยงาม สบายตา ไม่ล้นจอมือถือแน่นอน
+    NUM_COLS = 2
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
@@ -386,8 +343,8 @@ else:
                         f"""
                         <div class="menu-card">
                             <div style="text-align: center;">
-                                <div style="font-weight: 700; font-size: 11px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.1; color: #2C221E; overflow: hidden;">{display_name}</div>
-                                <div style="color: #8C6D58; font-weight: 800; font-size: 12px; margin-top: 1px;">{price:.0f} {t['baht']}</div>
+                                <div style="font-weight: 700; font-size: 13px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
+                                <div style="color: #8C6D58; font-weight: 800; font-size: 13px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                             </div>
                             <div class="card-divider"></div>
                         """, 
