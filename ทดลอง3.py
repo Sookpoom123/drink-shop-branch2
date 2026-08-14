@@ -236,6 +236,19 @@ def init_db():
             price REAL
         )
     ''')
+
+    # ➕ เพิ่มตารางสำหรับบันทึกรายจ่าย
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS expenses (
+            id SERIAL PRIMARY KEY,
+            expense_date TEXT,
+            title TEXT,
+            amount REAL,
+            note TEXT,
+            recorded_by TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
@@ -445,6 +458,33 @@ def delete_sale_by_id(record_id):
     conn.close()
     st.cache_data.clear()
 
+# --- ฟังก์ชันจัดการรายจ่ายใน Database ---
+def add_expense(expense_date, title, amount, note, recorded_by):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('''
+        INSERT INTO expenses (expense_date, title, amount, note, recorded_by)
+        VALUES (%s, %s, %s, %s, %s)
+    ''', (str(expense_date), title, amount, note, recorded_by))
+    conn.commit()
+    conn.close()
+    st.cache_data.clear()
+
+@st.cache_data(ttl=5)
+def get_expenses():
+    conn = get_db_connection()
+    df = pd.read_sql_query("SELECT * FROM expenses ORDER BY id DESC", conn)
+    conn.close()
+    return df
+
+def delete_expense_by_id(record_id):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("DELETE FROM expenses WHERE id = %s", (record_id,))
+    conn.commit()
+    conn.close()
+    st.cache_data.clear()
+
 # ==========================================
 # 🔔 POP-UP DIALOGS
 # ==========================================
@@ -492,6 +532,20 @@ def confirm_delete_dialog(item_id, item_name, qty):
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_sale"):
+            st.rerun()
+
+@st.dialog("⚠️ ยืนยันการลบรายการรายจ่าย")
+def confirm_delete_expense_dialog(exp_id, title, amount):
+    st.write(f"คุณต้องการลบรายจ่าย **{title}** ({amount:,.0f} บาท) ใช่หรือไม่?")
+    col_confirm, col_cancel = st.columns(2)
+    with col_confirm:
+        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_exp"):
+            delete_expense_by_id(exp_id)
+            st.success("ลบรายการรายจ่ายเรียบร้อย!")
+            time.sleep(0.5)
+            st.rerun()
+    with col_cancel:
+        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_exp"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบเมนู")
@@ -833,8 +887,9 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 3: สรุปยอดขายเรียลไทม์ (วันนี้ & เดือนนี้) ---
+    # --- ส่วนที่ 3: สรุปยอดขายเรียลไทม์ & สรุปทางการเงิน (วันนี้ & เดือนนี้) ---
     df_all = get_sales()
+    df_exp = get_expenses()
 
     if not df_all.empty and 'sale_date' in df_all.columns:
         df_all['date_dt'] = pd.to_datetime(df_all['sale_date'], errors='coerce')
@@ -862,58 +917,75 @@ else:
     st.divider()
 
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    selected_date = st.date_input("📅 ดูประวัติยอดขายของวันที่", value=date.today())
+    selected_date = st.date_input("📅 ดูประวัติและสรุปทางการเงินของวันที่", value=date.today())
 
-    if not df_all.empty:
-        df_day = df_all[df_all["sale_date"] == str(selected_date)]
-        
-        if not df_day.empty:
-            total_sales = df_day["total_price"].sum()
-            total_costs = df_day["total_cost"].sum()
-            total_profits = df_day["total_profit"].sum()
-            total_cups = df_day["qty"].sum()
+    # ดึงข้อมูลยอดขายและรายจ่ายประจำวันที่เลือก
+    df_day_sales = df_all[df_all["sale_date"] == str(selected_date)] if not df_all.empty else pd.DataFrame()
+    df_day_exp = df_exp[df_exp["expense_date"] == str(selected_date)] if not df_exp.empty else pd.DataFrame()
 
-            cash_total = df_day[df_day["payment_method"] == "💵 เงินสด"]["total_price"].sum()
-            qr_total = df_day[df_day["payment_method"].str.contains("QR", na=False)]["total_price"].sum()
+    total_sales = df_day_sales["total_price"].sum() if not df_day_sales.empty else 0.0
+    total_expenses = df_day_exp["amount"].sum() if not df_day_exp.empty else 0.0
+    net_profit = total_sales - total_expenses
+    total_cups = df_day_sales["qty"].sum() if not df_day_sales.empty else 0
 
-            m_col1, m_col2 = st.columns(2)
-            m_col1.metric("ยอดขายรวม", f"{total_sales:,.0f} บ.")
-            m_col2.metric("กำไรสุทธิ", f"{total_profits:,.2f} บ.")
-            
-            m_col3, m_col4 = st.columns(2)
-            m_col3.metric("ต้นทุนรวม", f"{total_costs:,.2f} บ.")
-            m_col4.metric("ขายได้ทั้งหมด", f"{total_cups:,} แก้ว")
+    cash_total = df_day_sales[df_day_sales["payment_method"] == "💵 เงินสด"]["total_price"].sum() if not df_day_sales.empty else 0.0
+    qr_total = df_day_sales[df_day_sales["payment_method"].str.contains("QR", na=False)]["total_price"].sum() if not df_day_sales.empty else 0.0
 
-            st.write(f"💳 **แยกเงินเข้า:** 💵 เงินสด `{cash_total:,.0f} บ.` | 📱 QR/Scan `{qr_total:,.0f} บ.`")
+    # สรุปทางการเงิน 3 ช่องหลัก
+    m_col1, m_col2, m_col3 = st.columns(3)
+    m_col1.metric("💵 ยอดขายรวม", f"{total_sales:,.0f} บ.")
+    m_col2.metric("💸 รายจ่ายรวม", f"{total_expenses:,.0f} บ.")
+    m_col3.metric("🎉 กำไรคงเหลือสุทธิ", f"{net_profit:,.0f} บ.")
 
-            st.divider()
-            st.subheader("📋 รายละเอียดรายการขายวันนี้")
-            
-            for index, row in df_day.iterrows():
-                with st.container():
-                    c_info, c_del = st.columns([4, 1])
-                    with c_info:
-                        seller = row['seller_name'] if pd.notna(row['seller_name']) and row['seller_name'] else "ไม่ระบุ"
-                        st.markdown(f"**{row['item_name']}** ({row['qty']} แก้ว)")
-                        st.caption(f"ยอดขาย: {row['total_price']:,.0f} บ. | {row['payment_method']} | 👤 ผู้บันทึก: **{seller}**")
-                    with c_del:
-                        if st.button("❌", key=f"btn_del_row_{row['id']}"):
-                            confirm_delete_dialog(row['id'], row['item_name'], row['qty'])
-                    st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
+    st.write(f"🥤 **จำนวนขายได้:** `{total_cups:,} แก้ว` | 💵 เงินสด `{cash_total:,.0f} บ.` | 📱 QR/Scan `{qr_total:,.0f} บ.`")
 
-            csv_data = df_all.to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                label="📥 ดาวน์โหลดประวัติทั้งหมด (.CSV)",
-                data=csv_data,
-                file_name=f"sales_report_{date.today()}.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-
-        else:
-            st.info(f"ยังไม่มีรายการขายในวันที่ {selected_date}")
+    st.divider()
+    
+    # --- รายการบันทึกรายจ่ายประจำวัน ---
+    st.subheader("💸 รายการบันทึกรายจ่ายประจำวัน")
+    if not df_day_exp.empty:
+        for index, row in df_day_exp.iterrows():
+            with st.container():
+                c_exp_info, c_exp_del = st.columns([4, 1])
+                with c_exp_info:
+                    note_str = f" ({row['note']})" if pd.notna(row['note']) and row['note'] else ""
+                    st.markdown(f"**{row['title']}**{note_str}")
+                    st.caption(f"จำนวนเงิน: **{row['amount']:,.0f} บ.** | 👤 ผู้บันทึก: **{row['recorded_by']}**")
+                with c_exp_del:
+                    if st.button("❌", key=f"btn_del_exp_{row['id']}"):
+                        confirm_delete_expense_dialog(row['id'], row['title'], row['amount'])
+            st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
     else:
-        st.info("ยังไม่มีข้อมูลรายการขายในระบบ")
+        st.info(f"ยังไม่มีรายการบันทึกรายจ่ายในวันที่ {selected_date}")
+
+    st.divider()
+
+    # --- รายการขายประจำวัน ---
+    st.subheader("📋 รายละเอียดรายการขายประจำวัน")
+    if not df_day_sales.empty:
+        for index, row in df_day_sales.iterrows():
+            with st.container():
+                c_info, c_del = st.columns([4, 1])
+                with c_info:
+                    seller = row['seller_name'] if pd.notna(row['seller_name']) and row['seller_name'] else "ไม่ระบุ"
+                    st.markdown(f"**{row['item_name']}** ({row['qty']} แก้ว)")
+                    st.caption(f"ยอดขาย: {row['total_price']:,.0f} บ. | {row['payment_method']} | 👤 ผู้บันทึก: **{seller}**")
+                with c_del:
+                    if st.button("❌", key=f"btn_del_row_{row['id']}"):
+                        confirm_delete_dialog(row['id'], row['item_name'], row['qty'])
+                st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
+
+        csv_data = df_all.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label="📥 ดาวน์โหลดประวัติขายทั้งหมด (.CSV)",
+            data=csv_data,
+            file_name=f"sales_report_{date.today()}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    else:
+        st.info(f"ยังไม่มีรายการขายในวันที่ {selected_date}")
+
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- ส่วนที่ 4: สรุปยอดขายรวมและอันดับขายดี ---
@@ -959,12 +1031,14 @@ else:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
-    # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู, ท็อปปิ้ง & สมาชิก)
+    # ⚙️ ส่วนจัดการระบบ (เพิ่ม/ลบเมนู, ท็อปปิ้ง, รายจ่าย & สมาชิก)
     # ==========================================
-    with st.expander("⚙️ **จัดการระบบ (เมนู / ท็อปปิ้ง / สมาชิก)**", expanded=False):
-        tab_add_menu, tab_del_menu, tab_topping, tab_users = st.tabs(["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "👥 สมาชิก"])
+    with st.expander("⚙️ **จัดการระบบ (เมนู / ท็อปปิ้ง / รายจ่าย / สมาชิก)**", expanded=False):
+        tab_add_menu, tab_del_menu, tab_topping, tab_expense, tab_users = st.tabs(
+            ["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "💸 บันทึกรายจ่าย", "👥 สมาชิก"]
+        )
 
-        # TAB 1: เพิ่มเมนูใหม่ (เอาช่องกรอกราคาต้นทุนออกเรียบร้อย)
+        # TAB 1: เพิ่มเมนูใหม่
         with tab_add_menu:
             st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
@@ -1027,7 +1101,24 @@ else:
             else:
                 st.error("🔒 เฉพาะ Admin เท่านั้นที่จัดการท็อปปิ้งได้")
 
-        # TAB 4: จัดการสมาชิก
+        # TAB 4: บันทึกรายจ่าย
+        with tab_expense:
+            st.write("💸 **ลงบันทึกรายจ่ายประจำวัน:**")
+            exp_date = st.date_input("วันที่จ่าย", value=date.today(), key="exp_date_input")
+            exp_title = st.text_input("รายการรายจ่าย (เช่น ค่าซื้อน้ำแข็ง, ค่าวัตถุดิบชา)", key="exp_title_input")
+            exp_amount = st.number_input("จำนวนเงิน (บาท)", min_value=1.0, value=100.0, step=10.0, key="exp_amount_input")
+            exp_note = st.text_input("หมายเหตุเพิ่มเติม (ถ้ามี)", key="exp_note_input")
+
+            if st.button("💾 บันทึกรายจ่าย", use_container_width=True, key="btn_save_expense"):
+                if exp_title.strip() != "":
+                    add_expense(exp_date, exp_title.strip(), exp_amount, exp_note.strip(), st.session_state.username)
+                    st.success(f"บันทึกรายจ่าย '{exp_title}' จำนวน {exp_amount:,.0f} บาท เรียบร้อย!")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.warning("กรุณากรอกชื่อรายการรายจ่าย")
+
+        # TAB 5: จัดการสมาชิก
         with tab_users:
             if st.session_state.role == "admin":
                 st.write("🟢 **สถานะผู้ใช้งาน**")
