@@ -4,9 +4,9 @@ import psycopg2
 import streamlit as st
 import time
 import json
+import re
 from datetime import datetime, date
 import pandas as pd
-from deep_translator import GoogleTranslator
 
 # --- ตั้งค่าหน้าตาเว็บไซต์รองรับ Mobile Screen ---
 st.set_page_config(
@@ -20,10 +20,10 @@ st.set_page_config(
 # 🌐 พจนานุกรมและระบบแปลภาษา (Foreign -> Thai)
 # ==========================================
 TRANSLATION_MAP = {
-    # --- กล้วยนมสด (รองรับทั้งแบบปั่นและไม่ปั่น) ---
+    # --- กล้วยนมสด ---
     "香蕉鲜奶冰沙": "กล้วยนมสดปั่น", "香蕉鲜奶": "กล้วยนมสด",
     "Banana Milkshake": "กล้วยนมสดปั่น", "Banana Milk": "กล้วยนมสด",
-    "ငှက်ပျော နို့အေး": "กล้วยนมสด",
+    "ငှက်ပျော နို့အေး": "กล้วยนมสด", "ငှက်ပျောနို့အေး": "กล้วยนมสด",
 
     # --- อังกฤษ (English) ---
     "Taiwan Milk Tea": "ชานมไต้หวัน", "Vanilla Milk Tea": "ชานมวนิลา", "Caramel Milk Tea": "ชานมคาราเมล",
@@ -64,6 +64,9 @@ TRANSLATION_MAP = {
     "外带": "สั่งกลับบ้าน", "堂食": "ทานที่ร้าน",
 
     # --- พม่า (Myanmar) ---
+    "လက်ဖက်ရည် စိမ်း ပျားရည် သံပုရာ": "ชาเขียวน้ำผึ้งมะนาว",
+    "လက်ဖက်ရည်စိမ်း ပျားရည် သံပုရာ": "ชาเขียวน้ำผึ้งมะนาว",
+    "ပျားသံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวน้ำผึ้งมะนาว",
     "တိုင်ဝမ် နို့လက်ဖက်ရည်": "ชานมไต้หวัน", "ဗနီလာ နို့လက်ဖက်ရည်": "ชานมวนิลา",
     "ကာရာမဲလ် နို့လက်ဖက်ရည်": "ชานมคาราเมล", "ပျားရည် နို့လက်ဖက်ရည်": "ชานมน้ำผึ้ง", "လိုင်ချီး နို့လက်ဖက်ရည်": "ชานมลิ้นจี่",
     "ဖရဲသီး နို့လက်ဖက်ရည်": "ชานมเมล่อน", "စထရော်ဘယ်ရီ နို့လက်ဖက်ရည်": "ชานมสตรอเบอร์รี่", "ပန်းသီး နို့လက်ဖက်ရည်": "ชานมแอปเปิ้ล",
@@ -71,10 +74,10 @@ TRANSLATION_MAP = {
     "ပိန်းဥ နို့လက်ဖက်ရည်": "ชานมเผือก", "ထိုင်း ကော်ဖီနက်": "โอเลี้ยง", "ရှေးဟောင်း ကော်ဖီ": "กาแฟโบราณ",
     "နက်စကော်ဖီ": "เนสกาแฟ", "လက်ဖက်ရည်နက်အေး": "ชาดำเย็น", "သံပုရာ လက်ဖက်ရည်": "ชามะนาว",
     "ပျားသံပုရာ လက်ဖက်ရည်နီ": "ชาแดงน้ำผึ้งมะนาว", "ထိုင်း နို့လက်ဖက်ရည်": "ชาไทยนม", "လက်ဖက်ရည်စိမ်းနို့": "ชาเขียวนม",
-    "သံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวมะนาว", "ပျားသံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวน้ำผึ้งมะนาว", "လက်ဖက်ရည်စိမ်း": "ชาเขียวใส",
+    "သံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวมะนาว", "လက်ဖက်ရည်စိမ်း": "ชาเขียวใส",
     "ကိုကိုး": "โกโก้", "နို့န်းရောင်": "นมชมพู", "အိုဗာတင်း": "โอวัลติน", "ပျားရည် နို့စိမ်း": "นมสดน้ำผึ้ง",
     "ကာရာမဲလ် နို့စိမ်း": "นมสดคาราเมล", "နို့စိမ်း": "นมสดสีขาว", "စထရော်ဘယ်ရီ လက်ဖက်ရည်": "ชาสตรอเบอร์รี่",
-    "လိုင်ချီး လက်ဖက်ရည်": "ชาลิ้นจี่", "ဖရဲသီး လက်ဖက်ရည်": "ชาเมล่อน", "ပန်းသီး လက်ဖက်ရည်": "ชาแอปเปိလ",
+    "လိုင်ချီး လက်ဖက်ရည်": "ชาลิ้นจี่", "ဖရဲသီး လက်ဖက်ရည်": "ชาเมล่อน", "ပန်းသီး လက်ဖက်ရည်": "ชาแอปเปิ้ล",
     "ပိန်းဥ နို့စိမ်းဖျော်ရည်": "เผือกนมสดปั่น", "အုန်းသီး နို့စိမ်းဖျော်ရည်": "มะพร้าวนมสดปั่น", "ဖရဲသီး နို့စိမ်းဖျော်ရည်": "เมล่อนนมสดปั่น",
     "ကန်စွန်းဥဝါ နို့စိမ်းဖျော်ရည်": "มันม่วงนมสดปั่น", "စထရော်ဘယ်ရီ နို့စိမ်းဖျော်ရည်": "สตรอเบอร์รี่นมสดปั่น",
     "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
@@ -82,41 +85,43 @@ TRANSLATION_MAP = {
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
     "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรุ้ตสลัด",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
-    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ์", "အပိုမပါ": "ไม่ใส่ท็อปปิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
+    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ์", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
 }
 
 def translate_to_thai(text):
-    """ฟังก์ชันแปลงข้อความต่างประเทศเป็นภาษาไทยแบบยืดหยุ่น (Dictionary + Deep Translator Fallback)"""
-    if not text or not isinstance(text, str):
+    """ฟังก์ชันแปลงข้อความต่างประเทศเป็นภาษาไทยแบบยืดหยุ่น ยึด Key ที่ยาวสุดก่อน"""
+    if not text:
         return text
     
     translated_text = str(text).strip()
-    if not translated_text:
-        return text
 
-    # Step 1: แปลงด้วย Dictionary ในระบบก่อน
-    for foreign_str, thai_str in TRANSLATION_MAP.items():
+    # จัดเรียง Key ตามความยาวจากยาวไปสั้น เพื่อไม่ให้คำสั้นตัดหน้าคำยาว
+    sorted_keys = sorted(TRANSLATION_MAP.keys(), key=len, reverse=True)
+
+    for foreign_str in sorted_keys:
         if foreign_str in translated_text:
-            translated_text = translated_text.replace(foreign_str, thai_str)
+            translated_text = translated_text.replace(foreign_str, TRANSLATION_MAP[foreign_str])
             
+    # กรณีภาษาพม่า/จีนที่มีเว้นวรรคไม่ตรงกัน ทำการนอร์มัลไลซ์ space
+    clean_text = re.sub(r'\s+', ' ', translated_text).strip()
+    
+    for foreign_str in sorted_keys:
+        clean_foreign = re.sub(r'\s+', ' ', foreign_str).strip()
+        if clean_foreign in clean_text:
+            clean_text = clean_text.replace(clean_foreign, TRANSLATION_MAP[foreign_str])
+
     # ตัดคำซ้ำซ้อน
-    words = translated_text.split()
+    words = clean_text.split()
     dedup_words = []
     for w in words:
         if not dedup_words or w != dedup_words[-1]:
             dedup_words.append(w)
-    translated_text = " ".join(dedup_words)
+            
+    return " ".join(dedup_words)
 
-    # Step 2: หากยังมีตัวอักษรต่างชาติที่ไม่ถูกแปล ให้ใช้ GoogleTranslator ช่วยแปลอัตโนมัติ
-    try:
-        translated_text = GoogleTranslator(source='auto', target='th').translate(translated_text)
-    except Exception:
-        pass # ถ้าแปลออนไลน์ไม่ผ่าน ให้ใช้ผลลัพธ์จาก Step 1
-
-    return translated_text
-
-# --- เชื่อมต่อฐานข้อมูล (รองรับ Secrets หลายรูปแบบ) ---
-def get_db_connection():
+# --- เชื่อมต่อฐานข้อมูล Connection Pool / Fast Connect ---
+@st.cache_resource
+def get_db_connection_string():
     db_url = None
     if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
         db_url = st.secrets["postgres"]["url"]
@@ -129,7 +134,10 @@ def get_db_connection():
         st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets กรุณาตรวจสอบการตั้งค่า Secrets บน Streamlit Cloud")
         st.stop()
         
-    return psycopg2.connect(db_url)
+    return db_url
+
+def get_db_connection():
+    return psycopg2.connect(get_db_connection_string())
 
 # ==========================================
 # 🎨 CSS Optimization
@@ -219,7 +227,6 @@ load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
 
-# --- รายการเมนูตั้งต้น ---
 DEFAULT_MENU = {
     "ชานมไต้หวัน": {"cost": 8.0, "price": 19},
     "ชานมวนิลา": {"cost": 10.0, "price": 24},
@@ -349,6 +356,10 @@ def init_db():
         )
     ''')
     
+    # เพิ่ม Index ป้องกัน DB หน่วงเวลาคิวรี
+    c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date)")
+    
     c.execute("SELECT COUNT(*) FROM menu_items")
     if c.fetchone()[0] == 0:
         for name, info in DEFAULT_MENU.items():
@@ -404,7 +415,7 @@ def get_user_profile_img(username):
         return row[0]
     return None
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=30)
 def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -416,7 +427,7 @@ def get_menu_from_db():
         menu_dict[r[0]] = {"cost": float(r[1]) if r[1] is not None else 0.0, "price": float(r[2])}
     return menu_dict
 
-@st.cache_data(ttl=5)
+@st.cache_data(ttl=30)
 def get_toppings_from_db():
     conn = get_db_connection()
     c = conn.cursor()
@@ -542,8 +553,15 @@ def set_user_offline(username):
     conn.commit()
     conn.close()
 
-@st.cache_data(ttl=5)
-def get_sales():
+@st.cache_data(ttl=10)
+def get_sales_by_date(selected_date_str):
+    conn = get_db_connection()
+    df = pd.read_sql_query("SELECT * FROM sales WHERE sale_date = %s", conn, params=(selected_date_str,))
+    conn.close()
+    return df
+
+@st.cache_data(ttl=10)
+def get_all_sales():
     conn = get_db_connection()
     df = pd.read_sql_query("SELECT * FROM sales", conn)
     conn.close()
@@ -568,10 +586,10 @@ def add_expense(expense_date, title, amount, note, recorded_by):
     conn.close()
     st.cache_data.clear()
 
-@st.cache_data(ttl=5)
-def get_expenses():
+@st.cache_data(ttl=10)
+def get_expenses_by_date(selected_date_str):
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT * FROM expenses ORDER BY id DESC", conn)
+    df = pd.read_sql_query("SELECT * FROM expenses WHERE expense_date = %s ORDER BY id DESC", conn, params=(selected_date_str,))
     conn.close()
     return df
 
@@ -582,6 +600,34 @@ def delete_expense_by_id(record_id):
     conn.commit()
     conn.close()
     st.cache_data.clear()
+
+def complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, items_count, o_total_price, o_total_cost):
+    """ฟังก์ชันจัดการย้ายออเดอร์จากครัวลงตาราง Sales อย่างปลอดภัย"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
+        
+        combined_item_names = ", ".join(item_summary_text)
+        total_price_f = float(o_total_price) if o_total_price is not None else 0.0
+        total_cost_f = float(o_total_cost) if o_total_cost is not None else 0.0
+        total_profit = total_price_f - total_cost_f
+        
+        cur.execute('''
+            INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        ''', (str(date.today()), f"📱 {table_no_translated}: {combined_item_names}", items_count, total_price_f, total_cost_f, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
+        
+        conn.commit()
+        st.cache_data.clear()
+        return True
+    except Exception as e:
+        conn.rollback()
+        st.error(f"เกิดข้อผิดพลาดในการทำรายการ: {e}")
+        return False
+    finally:
+        cur.close()
+        conn.close()
 
 # ==========================================
 # 🔔 POP-UP DIALOGS
@@ -699,6 +745,8 @@ def render_kitchen_orders():
         cur = conn.cursor()
         cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
         pending_orders = cur.fetchall()
+        cur.close()
+        conn.close()
 
         if not pending_orders:
             st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
@@ -708,13 +756,21 @@ def render_kitchen_orders():
                 order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
                 table_no_translated = translate_to_thai(table_no)
                 
-                items = json.loads(items_json) if isinstance(items_json, str) else items_json
+                # แปลง JSON ป้องกัน Error
+                if isinstance(items_json, str):
+                    try:
+                        items = json.loads(items_json)
+                    except json.JSONDecodeError:
+                        items = []
+                else:
+                    items = items_json if items_json else []
                 
                 with st.container(border=True):
                     col_o1, col_o2 = st.columns([3, 1])
+                    item_summary_text = []
+
                     with col_o1:
                         st.markdown(f"### 📌 **{table_no_translated}** (ออเดอร์ #{order_id})")
-                        item_summary_text = []
                         
                         for item in items:
                             raw_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
@@ -738,23 +794,11 @@ def render_kitchen_orders():
 
                     with col_o2:
                         if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
-                            cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
-                            
-                            combined_item_names = ", ".join(item_summary_text)
-                            total_profit = float(o_total_price) - float(o_total_cost) if o_total_cost else float(o_total_price)
-                            
-                            cur.execute('''
-                                INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                            ''', (str(date.today()), f"📱 {table_no_translated}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
-                            
-                            conn.commit()
-                            st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
-                            time.sleep(0.5)
-                            st.rerun()
+                            if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost):
+                                st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
+                                time.sleep(0.5)
+                                st.rerun()
 
-        cur.close()
-        conn.close()
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดออเดอร์: {e}")
 
@@ -963,7 +1007,7 @@ else:
                 updated_count = 0
                 for _, row in edited_df.iterrows():
                     m_name = row["เมนู"]
-                    new_p = row["ราคาปกติ"]
+                    new_p = float(row["ราคาปกติ"])
                     
                     old_c = current_menu[m_name]["cost"]
                     old_p = current_menu[m_name]["price"]
@@ -991,39 +1035,24 @@ else:
     st.markdown('</div>', unsafe_allow_html=True)
 
     # --- ส่วนที่ 3: สรุปยอดขายเรียลไทม์ & สรุปทางการเงิน ---
-    df_all = get_sales()
-    df_exp = get_expenses()
-
-    if not df_all.empty and 'sale_date' in df_all.columns:
-        df_all['date_dt'] = pd.to_datetime(df_all['sale_date'], errors='coerce')
-        
-        today_str = datetime.today().strftime('%Y-%m-%d')
-        current_month = datetime.today().month
-        current_year = datetime.today().year
-
-        df_today = df_all[df_all['sale_date'] == today_str]
-        today_sales = df_today['total_price'].sum() if not df_today.empty else 0
-        today_cups = df_today['qty'].sum() if not df_today.empty else 0
-
-        df_month = df_all[(df_all['date_dt'].dt.month == current_month) & (df_all['date_dt'].dt.year == current_year)]
-        month_sales = df_month['total_price'].sum() if not df_month.empty else 0
-        month_cups = df_month['qty'].sum() if not df_month.empty else 0
-    else:
-        today_sales, today_cups, month_sales, month_cups = 0, 0, 0, 0
+    df_today_sales = get_sales_by_date(today_str)
+    
+    today_sales = df_today_sales['total_price'].sum() if not df_today_sales.empty else 0
+    today_cups = df_today_sales['qty'].sum() if not df_today_sales.empty else 0
 
     col1, col2 = st.columns(2)
     with col1:
         st.metric(label="📅 ยอดขายวันนี้", value=f"{today_sales:,.0f} บาท", delta=f"{today_cups:,} แก้ว")
     with col2:
-        st.metric(label="📊 ยอดขายเดือนนี้", value=f"{month_sales:,.0f} บาท", delta=f"{month_cups:,} แก้ว")
+        st.metric(label="📊 ยอดสั่งซื้อวันนี้ (ออเดอร์)", value=f"{len(df_today_sales):,} รายการ")
 
     st.divider()
 
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     selected_date = st.date_input("📅 ดูประวัติและสรุปทางการเงินของวันที่", value=date.today())
 
-    df_day_sales = df_all[df_all["sale_date"] == str(selected_date)] if not df_all.empty else pd.DataFrame()
-    df_day_exp = df_exp[df_exp["expense_date"] == str(selected_date)] if not df_exp.empty else pd.DataFrame()
+    df_day_sales = get_sales_by_date(str(selected_date))
+    df_day_exp = get_expenses_by_date(str(selected_date))
 
     total_sales = df_day_sales["total_price"].sum() if not df_day_sales.empty else 0.0
     total_expenses = df_day_exp["amount"].sum() if not df_day_exp.empty else 0.0
@@ -1062,7 +1091,7 @@ else:
     st.divider()
 
     # --- รายการขายประจำวัน ---
-    st.subheader("📋 รายละเอียดรายการขายประจำวัน")
+    st.subheader("📋 รายรายละเอียดรายการขายประจำวัน")
     if not df_day_sales.empty:
         for index, row in df_day_sales.iterrows():
             with st.container():
@@ -1076,11 +1105,11 @@ else:
                         confirm_delete_dialog(row['id'], row['item_name'], row['qty'])
                 st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
 
-        csv_data = df_all.to_csv(index=False).encode('utf-8-sig')
+        csv_data = df_day_sales.to_csv(index=False).encode('utf-8-sig')
         st.download_button(
-            label="📥 ดาวน์โหลดประวัติขายทั้งหมด (.CSV)",
+            label="📥 ดาวน์โหลดประวัติขายเฉพาะวันนี้ (.CSV)",
             data=csv_data,
-            file_name=f"sales_report_{date.today()}.csv",
+            file_name=f"sales_report_{selected_date}.csv",
             mime="text/csv",
             use_container_width=True
         )
@@ -1093,42 +1122,39 @@ else:
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📈 สรุปยอดขายรวม")
 
-    if not df_all.empty:
-        filter_time = st.radio("เลือกช่วงเวลา:", ["ประจำวัน", "ทั้งหมดสะสม"], horizontal=True)
+    filter_time = st.radio("เลือกช่วงเวลา:", ["ประจำวัน", "ทั้งหมดสะสม"], horizontal=True)
 
-        if filter_time == "ประจำวัน":
-            target_df = df_all[df_all["sale_date"] == str(selected_date)]
-        else:
-            target_df = df_all
-
-        if not target_df.empty:
-            total_money_summary = target_df["total_price"].sum()
-            total_cups_summary = target_df["qty"].sum()
-
-            col_sum1, col_sum2 = st.columns(2)
-            col_sum1.metric("ยอดขายรวมทั้งหมด", f"{total_money_summary:,.0f} บาท")
-            col_sum2.metric("จำนวนขายรวมทั้งหมด", f"{total_cups_summary:,} แก้ว")
-
-            st.divider()
-
-            top_sellers = target_df.groupby("item_name").agg(
-                จำนวนแก้ว=('qty', 'sum'),
-                ยอดขายรวม_บาท=('total_price', 'sum')
-            ).reset_index()
-
-            top_sellers.columns = ["เมนู", "จำนวนแก้ว", "ยอดขายรวม (บาท)"]
-            top_sellers = top_sellers.sort_values(by="จำนวนแก้ว", ascending=False).reset_index(drop=True)
-            top_sellers.index += 1
-
-            st.write("🏆 **5 อันดับเมนูขายดีที่สุด**")
-            st.dataframe(
-                top_sellers.head(5).style.format({"ยอดขายรวม (บาท)": "{:,.0f} บ."}), 
-                use_container_width=True
-            )
-        else:
-            st.info("ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก")
+    if filter_time == "ประจำวัน":
+        target_df = df_day_sales
     else:
-        st.info("ยังไม่มีข้อมูลการขายในระบบ")
+        target_df = get_all_sales()
+
+    if not target_df.empty:
+        total_money_summary = target_df["total_price"].sum()
+        total_cups_summary = target_df["qty"].sum()
+
+        col_sum1, col_sum2 = st.columns(2)
+        col_sum1.metric("ยอดขายรวมทั้งหมด", f"{total_money_summary:,.0f} บาท")
+        col_sum2.metric("จำนวนขายรวมทั้งหมด", f"{total_cups_summary:,} แก้ว")
+
+        st.divider()
+
+        top_sellers = target_df.groupby("item_name").agg(
+            จำนวนแก้ว=('qty', 'sum'),
+            ยอดขายรวม_บาท=('total_price', 'sum')
+        ).reset_index()
+
+        top_sellers.columns = ["เมนู", "จำนวนแก้ว", "ยอดขายรวม (บาท)"]
+        top_sellers = top_sellers.sort_values(by="จำนวนแก้ว", ascending=False).reset_index(drop=True)
+        top_sellers.index += 1
+
+        st.write("🏆 **5 อันดับเมนูขายดีที่สุด**")
+        st.dataframe(
+            top_sellers.head(5).style.format({"ยอดขายรวม (บาท)": "{:,.0f} บ."}), 
+            use_container_width=True
+        )
+    else:
+        st.info("ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก")
     st.markdown('</div>', unsafe_allow_html=True)
 
     # ==========================================
@@ -1147,7 +1173,7 @@ else:
             
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
-                    save_menu_item_db(new_name.strip(), new_price)
+                    save_menu_item_db(new_name.strip(), float(new_price))
                     st.cache_data.clear()
                     st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
                     time.sleep(0.5)
@@ -1183,7 +1209,7 @@ else:
                 t_price = st.number_input("ราคาบวกเพิ่ม (บาท)", min_value=0.0, value=5.0, step=1.0, key="t_add_price")
                 if st.button("💾 บันทึกท็อปปิ้ง", use_container_width=True, key="btn_save_t"):
                     if t_name.strip() != "":
-                        save_topping_db(t_name.strip(), t_price)
+                        save_topping_db(t_name.strip(), float(t_price))
                         st.cache_data.clear()
                         st.success(f"บันทึกท็อปปิ้ง '{t_name}' เรียบร้อย!")
                         time.sleep(0.5)
@@ -1212,7 +1238,7 @@ else:
 
             if st.button("💾 บันทึกรายจ่าย", use_container_width=True, key="btn_save_expense"):
                 if exp_title.strip() != "":
-                    add_expense(exp_date, exp_title.strip(), exp_amount, exp_note.strip(), st.session_state.username)
+                    add_expense(exp_date, exp_title.strip(), float(exp_amount), exp_note.strip(), st.session_state.username)
                     st.success(f"บันทึกรายจ่าย '{exp_title}' จำนวน {exp_amount:,.0f} บาท เรียบร้อย!")
                     time.sleep(0.5)
                     st.rerun()
