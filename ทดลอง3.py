@@ -119,6 +119,83 @@ load_app_styles()
 
 ADMIN_SECRET_KEY = "3475"
 
+# ==========================================
+# 🌐 พจนานุกรมแปลภาษา (Foreign -> Thai)
+# ==========================================
+TRANSLATION_MAP = {
+    # --- อังกฤษ (English) ---
+    "Taiwan Milk Tea": "ชานมไต้หวัน", "Vanilla Milk Tea": "ชานมวนิลา", "Caramel Milk Tea": "ชานมคาราเมล",
+    "Honey Milk Tea": "ชานมน้ำผึ้ง", "Lychee Milk Tea": "ชานมลิ้นจี่", "Melon Milk Tea": "ชานมเมล่อน",
+    "Strawberry Milk Tea": "ชานมสตรอเบอร์รี่", "Apple Milk Tea": "ชานมแอปเปิ้ล", "Coffee Milk Tea": "ชานมกาแฟ",
+    "Cocoa Milk Tea": "ชานมโกโก้", "Ovaltine Milk Tea": "ชานมโอวัลติน", "Taro Milk Tea": "ชานมเผือก",
+    "O-Liang": "โอเลี้ยง", "Traditional Coffee": "กาแฟโบราณ", "Nescafe": "เนสกาแฟ",
+    "Iced Black Tea": "ชาดำเย็น", "Lemon Tea": "ชามะนาว", "Honey Lemon Tea": "ชาแดงน้ำผึ้งมะนาว",
+    "Thai Milk Tea": "ชาไทยนม", "Green Milk Tea": "ชาเขียวนม", "Lemon Green Tea": "ชาเขียวมะนาว",
+    "Honey Lemon Green Tea": "ชาเขียวน้ำผึ้งมะนาว", "Jasmine Green Tea": "ชาเขียวใส", "Cocoa": "โกโก้",
+    "Pink Milk": "นมชมพู", "Ovaltine": "โอวัลติน", "Honey Fresh Milk": "นมสดน้ำผึ้ง",
+    "Caramel Fresh Milk": "นมสดคาราเมล", "Fresh Milk": "นมสดสีขาว", "Strawberry Tea": "ชาสตรอเบอร์รี่",
+    "Lychee Tea": "ชาลิ้นจี่", "Melon Tea": "ชาเมล่อน", "Apple Tea": "ชาแอปเปิ้ล",
+    "Banana Milkshake": "กล้วยนมสดปั่น", "Taro Milkshake": "เผือกนมสดปั่น", "Coconut Milkshake": "มะพร้าวนมสดปั่น",
+    "Melon Milkshake": "เมล่อนนมสดปั่น", "Purple Sweet Potato Milkshake": "มันม่วงนมสดปั่น", 
+    "Strawberry Milkshake": "สตรอเบอร์รี่นมสดปั่น", "Cocoa Smoothie": "โกโก้ปั่น", "Ovaltine Smoothie": "โอวัลตินปั่น",
+    "Milk Smoothie": "นมสดปั่น", "Taiwan Milk Tea Smoothie": "ชานมไต้หวันปั่น", "Thai Tea Smoothie": "ชาไทยนมปั่น",
+    "Green Tea Smoothie": "ชาเขียวนมปั่น", "Matcha Fresh Milk Smoothie": "มัทฉะนมสดปั่น",
+    "Black Boba": "ไข่มุกสีดำ", "Gold Boba": "ไข่มุกสีทอง", "Fruit Salad": "ฟรุ้ตสลัด",
+    "Milk Jelly": "บุกนมสด", "Grass Jelly": "บุกเฉาก๊วย", "Honey Jelly": "บุกน้ำผึ้ง", "Brown Sugar Jelly": "บุกบราวน์ชูการ์",
+    "No Topping": "ไม่ใส่ท็อปปิ้ง", "Takeaway": "สั่งกลับบ้าน", "Dine-in": "ทานที่ร้าน",
+
+    # --- จีน (Chinese) ---
+    "台湾奶茶": "ชานมไต้หวัน", "香草奶茶": "ชานมวนิลา", "焦糖奶茶": "ชานมคาราเมล", "蜂蜜奶茶": "ชานมน้ำผึ้ง",
+    "荔枝奶茶": "ชานมลิ้นจี่", "哈蜜瓜奶茶": "ชานมเมล่อน", "草莓奶茶": "ชานมสตรอเบอร์รี่", "苹果奶茶": "ชานมแอปเปิ้ล",
+    "咖啡奶茶": "ชานมกาแฟ", "可可奶茶": "ชานมโกโก้", "阿华田奶茶": "ชานมโอวัลติน", "香芋奶茶": "ชานมเผือก",
+    "泰式黑咖啡": "โอเลี้ยง", "传统咖啡": "กาแฟโบราณ", "雀巢咖啡": "เนสกาแฟ", "冰红茶": "ชาดำเย็น",
+    "柠檬茶": "ชามะนาว", "蜂蜜柠檬红茶": "ชาแดงน้ำผึ้งมะนาว", "泰式奶茶": "ชาไทยนม", "泰式绿奶茶": "ชาเขียวนม",
+    "柠檬绿茶": "ชาเขียวมะนาว", "蜂蜜柠檬绿茶": "ชาเขียวน้ำผึ้งมะนาว", "清绿茶": "ชาเขียวใส", "可可": "โกโก้",
+    "粉红奶": "นมชมพู", "阿华田": "โอวัลติน", "蜂蜜鲜奶": "นมสดน้ำผึ้ง", "焦糖鲜奶": "นมสดคาราเมล",
+    "纯鲜奶": "นมสดสีขาว", "草莓茶": "ชาสตรอเบอร์รี่", "荔枝茶": "ชาลิ้นจี่", "哈蜜瓜茶": "ชาเมล่อน",
+    "苹果茶": "ชาแอปเปิ้ล", "香蕉鲜奶冰沙": "กล้วยนมสดปั่น", "香芋鲜奶冰沙": "เผือกนมสดปั่น", "椰香鲜奶冰沙": "มะพร้าวนมสดปั่น",
+    "哈蜜瓜鲜奶冰沙": "เมล่อนนมสดปั่น", "紫薯鲜奶冰沙": "มันม่วงนมสดปั่น", "草莓鲜奶冰沙": "สตรอเบอร์รี่นมสดปั่น",
+    "可可冰沙": "โกโก้ปั่น", "阿华田冰沙": "โอวัลตินปั่น", "鲜奶冰沙": "นมสดปั่น", "台湾奶茶冰沙": "ชานมไต้หวันปั่น",
+    "泰式奶茶冰沙": "ชาไทยนมปั่น", "泰式绿奶茶冰沙": "ชาเขียวนมปั่น", "抹茶鲜奶冰沙": "มัทฉะนมสดปั่น",
+    "黑珍珠": "ไข่มุกสีดำ", "金珍珠": "ไข่มุกสีทอง", "水果波霸": "ฟรุ้ตสลัด", "牛奶魔芋": "บุกนมสด",
+    "仙草魔芋": "บุกเฉาก๊วย", "蜂蜜魔芋": "บุกน้ำผึ้ง", "黑糖魔芋": "บุกบราวน์ชูการ์", "不加配料": "ไม่ใส่ท็อปปิ้ง",
+    "外带": "สั่งกลับบ้าน", "堂食": "ทานที่ร้าน",
+
+    # --- พม่า (Myanmar) ---
+    "ငှက်ပျော နို့အေး": "กล้วยนมสดปั่น", "တိုင်ဝမ် နို့လက်ဖက်ရည်": "ชานมไต้หวัน", "ဗနီလာ နို့လက်ဖက်ရည်": "ชานมวนิลา",
+    "ကာရာမဲလ် နို့လက်ဖက်ရည်": "ชานมคาราเมล", "ပျားရည် နို့လက်ဖက်ရည်": "ชานมน้ำผึ้ง", "လိုင်ချီး နို့လက်ဖက်ရည်": "ชานมลิ้นจี่",
+    "ဖရဲသီး နို့လက်ဖက်ရည်": "ชานมเมล่อน", "စထရော်ဘယ်ရီ နို့လက်ဖက်ရည်": "ชานมสตรอเบอร์รี่", "ပန်းသီး နို့လက်ဖက်ရည်": "ชานมแอปเปิ้ล",
+    "ကော်ဖီ နို့လက်ဖက်ရည်": "ชานมกาแฟ", "ကိုကိုး နို့လက်ဖက်ရည်": "ชานมโกโก้", "အိုဗာတင်း နို့လက်ဖက်ရည်": "ชานมโอวัลติน",
+    "ပိန်းဥ နို့လက်ဖက်ရည်": "ชานมเผือก", "ထိုင်း ကော်ဖီနက်": "โอเลี้ยง", "ရှေးဟောင်း ကော်ဖီ": "กาแฟโบราณ",
+    "နက်စကော်ဖီ": "เนสกาแฟ", "လက်ဖက်ရည်နက်အေး": "ชาดำเย็น", "သံပုရာ လက်ဖက်ရည်": "ชามะนาว",
+    "ပျားသံပုရာ လက်ဖက်ရည်နီ": "ชาแดงน้ำผึ้งมะนาว", "ထိုင်း နို့လက်ဖက်ရည်": "ชาไทยนม", "လက်ဖက်ရည်စိမ်းနို့": "ชาเขียวนม",
+    "သံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวมะนาว", "ပျားသံပုရာ လက်ဖက်ရည်စိမ်း": "ชาเขียวน้ำผึ้งมะนาว", "လက်ဖက်ရည်စိမ်း": "ชาเขียวใส",
+    "ကိုကိုး": "โกโก้", "နို့န်းရောင်": "นมชมพู", "အိုဗာတင်း": "โอวัลติน", "ပျားရည် နို့စိမ်း": "นมสดน้ำผึ้ง",
+    "ကာရာမဲလ် နို့စိမ်း": "นมสดคาราเมล", "နို့စိမ်း": "นมสดสีขาว", "စထရော်ဘယ်ရီ လက်ဖက်ရည်": "ชาสตรอเบอร์รี่",
+    "လိုင်ချီး လက်ဖက်ရည်": "ชาลิ้นจี่", "ဖရဲသီး လက်ဖက်ရည်": "ชาเมล่อน", "ပန်းသီး လက်ဖက်ရည်": "ชาแอปเปิ้ล",
+    "ပိန်းဥ နို့စိမ်းဖျော်ရည်": "เผือกนมสดปั่น", "အုန်းသီး နို့စိမ်းဖျော်ရည်": "มะพร้าวนมสดปั่น", "ဖရဲသီး နို့စိမ်းဖျော်ရည်": "เมล่อนนมสดปั่น",
+    "ကန်စွန်းဥဝါ နို့စိမ်းဖျော်ရည်": "มันม่วงนมสดปั่น", "စထရော်ဘယ်ရီ နို့စိမ်းဖျော်ရည်": "สตรอเบอร์รี่นมสดปั่น",
+    "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
+    "တိုင်ဝမ် နို့လက်ဖက်ရည်ဖျော်ရည်": "ชานมไต้หวันปั่น", "ထိုင်း နို့လက်ဖက်ရည်ဖျော်ရည်": "ชาไทยนมปั่น",
+    "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
+    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရาဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรุ้ตสลัด",
+    "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
+    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ์", "အပိုမပါ": "ไม่ใส่ท็อปปิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
+}
+
+def translate_to_thai(text):
+    """ฟังก์ชันแปลงข้อความภาษาต่างประเทศให้เป็นภาษาไทยแบบครอบคลุม"""
+    if not text:
+        return text
+    
+    translated_text = str(text)
+    # วนลูปเปลี่ยนคำตามพจนานุกรม
+    for foreign_str, thai_str in TRANSLATION_MAP.items():
+        if foreign_str in translated_text:
+            translated_text = translated_text.replace(foreign_str, thai_str)
+            
+    return translated_text
+
 # --- รายการเมนูตั้งต้น ---
 DEFAULT_MENU = {
     "ชานมไต้หวัน": {"cost": 8.0, "price": 19},
@@ -458,7 +535,6 @@ def delete_sale_by_id(record_id):
     st.cache_data.clear()
 
 def cancel_order_by_id(order_id):
-    """ฟังก์ชันยกเลิกออเดอร์โดยเปลี่ยนสถานะเป็น cancelled"""
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("UPDATE orders SET status = 'cancelled' WHERE id = %s", (order_id,))
@@ -610,15 +686,11 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที (แปลงเป็นภาษาไทยเสมอ) ---
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที ---
 @st.fragment(run_every="5s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
     st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
-
-    # โหลดเมนูภาษาไทยฉบับ Master มาไว้เทียบ
-    db_menu = get_menu_from_db()
-    db_toppings = get_toppings_from_db()
 
     try:
         conn = get_db_connection()
@@ -634,41 +706,32 @@ def render_kitchen_orders():
                 order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
                 items = json.loads(items_json) if isinstance(items_json, str) else items_json
                 
+                # แปลแปลงประเภท/หมายเลขโต๊ะ เป็นไทย
+                table_no_th = translate_to_thai(table_no)
+
                 with st.container(border=True):
                     col_o1, col_o2 = st.columns([3, 1])
                     with col_o1:
-                        st.markdown(f"### 📌 **{table_no}** (ออเดอร์ #{order_id})")
+                        st.markdown(f"### 📌 **{table_no_th}** (ออเดอร์ #{order_id})")
                         item_summary_text = []
                         
                         for item in items:
-                            # 1. พยายามดึงชื่อภาษาไทยก่อน (เช่น item['name_th'] หรือ item['name'])
-                            raw_name = item.get('name_th') or item.get('name') or item.get('display_name', '')
-                            
-                            # 2. ถ้าฝั่งลูกค้าส่ง ID เมนูมาด้วย ให้แปลง ID เป็นชื่อไทย
-                            item_id = item.get('item_id') or item.get('id')
-                            thai_name = None
-                            
-                            # หาชื่อไทยจาก Master Menu
-                            if raw_name in db_menu:
-                                thai_name = raw_name
-                            elif item_id and item_id in db_menu:
-                                thai_name = item_id
-                            else:
-                                thai_name = raw_name
-
+                            item_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
                             item_price = item.get('price', 0.0)
                             
-                            # แปลงท็อปปิ้งเป็นภาษาไทย
-                            topping_val = item.get('topping_th') or item.get('topping')
-                            has_topping = topping_val and topping_val not in ["ไม่ใส่ท็อปปิ้ง", "No Topping", "None", "", None]
-
-                            if has_topping:
-                                full_item_text = f"{thai_name} (+{topping_val})"
+                            topping_val = item.get('topping')
+                            has_topping = (topping_val and topping_val != "ไม่ใส่ท็อปปิ้ง") or ("(+" in item_display)
+                            
+                            if not has_topping:
+                                full_item_text = f"{item_display} (ไม่ใส่ท็อปปิ้ง)"
                             else:
-                                full_item_text = f"{thai_name} (ไม่ใส่ท็อปปิ้ง)"
+                                full_item_text = item_display
 
-                            st.write(f"- **{full_item_text}** ({item_price} บาท)")
-                            item_summary_text.append(full_item_text)
+                            # 🌟 แปลข้อความทุกส่วนให้เป็นภาษาไทยก่อนแสดงผลให้พนักงาน
+                            full_item_text_th = translate_to_thai(full_item_text)
+
+                            st.write(f"- **{full_item_text_th}** ({item_price} บาท)")
+                            item_summary_text.append(full_item_text_th)
                         
                         st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
 
@@ -682,7 +745,7 @@ def render_kitchen_orders():
                             cur.execute('''
                                 INSERT INTO sales (sale_date, item_name, qty, total_price, total_cost, total_profit, seller_name, payment_method)
                                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                            ''', (str(date.today()), f"📱 {table_no}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
+                            ''', (str(date.today()), f"📱 {table_no_th}: {combined_item_names}", len(items), o_total_price, o_total_cost, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
                             
                             conn.commit()
                             st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
@@ -690,7 +753,7 @@ def render_kitchen_orders():
                             st.rerun()
 
                         if st.button("❌ ยกเลิก", key=f"cancel_order_{order_id}", use_container_width=True):
-                            confirm_cancel_order_dialog(order_id, table_no)
+                            confirm_cancel_order_dialog(order_id, table_no_th)
 
         cur.close()
         conn.close()
