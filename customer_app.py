@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (ปรับแก้รองรับมือถือ) ---
+# --- CSS ตกแต่ง (จัด 3 เมนู/แถว บนมือถือแบบสบายตา) ---
 st.markdown(
     """
     <style>
@@ -37,7 +37,7 @@ st.markdown(
     footer { visibility: hidden; }
     header[data-testid="stHeader"] { visibility: hidden !important; }
 
-    /* ซ่อน Scrollbar แนวนอน */
+    /* ป้องกัน Scrollbar แนวนอน */
     html, body, .stApp {
         overflow-x: hidden !important;
         background-color: #F4EFEA !important;
@@ -46,81 +46,92 @@ st.markdown(
 
     .customer-header {
         background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
-        padding: 10px;
-        border-radius: 12px;
+        padding: 8px;
+        border-radius: 10px;
         color: #FFFFFF;
         text-align: center;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
 
-    /* ⚡ ปรับ Layout ป้องกันหน้าจอล้น / ไม่ต้องเลื่อนซ้ายขวา ⚡ */
+    /* ⚡ ล็อก Layout Grid 3 คอลัมน์ให้พอดีจอมือถือไม่ล้น ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: wrap !important; /* ยอมให้ตกบรรทัดเมื่อจอแคบ */
-        gap: 8px !important;
+        flex-wrap: nowrap !important;
+        gap: 4px !important;
+        width: 100% !important;
     }
 
     div[data-testid="column"] {
-        min-width: 0 !important; /* ป้องกัน Content ดันคอลัมน์ขยายเกินจอ */
+        flex: 1 1 33.33% !important;
+        min-width: 0 !important;
+        max-width: 33.33% !important;
+        padding: 0 !important;
     }
 
-    /* 📦 การ์ดเมนูเครื่องดื่ม */
+    /* 📦 การ์ดเมนูเครื่องดื่ม (ปรับให้กะทัดรัด) */
     .menu-card {
         background-color: #FFFFFF !important;
-        border: 2px solid #C8B2A2 !important;
-        border-radius: 12px !important;
-        padding: 8px 8px !important;
-        box-shadow: 0 2px 6px rgba(140, 109, 88, 0.12) !important;
-        margin-bottom: 6px !important;
+        border: 1.5px solid #C8B2A2 !important;
+        border-radius: 10px !important;
+        padding: 6px 4px !important;
+        box-shadow: 0 2px 4px rgba(140, 109, 88, 0.08) !important;
+        margin-bottom: 4px !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }
 
     .card-divider {
         border-top: 1px dashed #D3C4B8;
-        margin: 6px 0;
+        margin: 4px 0;
     }
 
     /* ปุ่มกดเพิ่มเมนู */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         font-weight: 600 !important;
-        font-size: 13px !important;
-        padding: 6px 4px !important;
+        font-size: 11px !important;
+        padding: 2px 0px !important;
         border: none !important;
         width: 100% !important;
+        min-height: 28px !important;
     }
 
     div.stButton > button:hover {
         background: #6E5341 !important;
     }
 
-    /* ⚡ ปรับแต่ง Multiselect สำหรับมือถือ ⚡ */
+    /* ⚡ ปรับแต่ง Multiselect สำหรับ 3 คอลัมน์ ⚡ */
     div[data-testid="stMultiSelect"] label {
-        font-size: 11px !important;
+        font-size: 10px !important;
         font-weight: 600 !important;
         color: #554840 !important;
-        margin-bottom: 2px !important;
+        margin-bottom: 0px !important;
+    }
+
+    div[data-testid="stMultiSelect"] div[data-baseweb="select"] {
+        min-height: 28px !important;
+        padding: 0px !important;
     }
 
     div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
         background-color: #8C6D58 !important;
         color: #FFFFFF !important;
-        font-size: 10px !important;
-        border-radius: 4px !important;
+        font-size: 9px !important;
+        border-radius: 3px !important;
+        padding: 0 2px !important;
     }
 
     /* 🛒 กรอบใหญ่ใบเสร็จตะกร้าสินค้า */
     .cart-container {
         background-color: #FFFFFF !important;
         border: 2px solid #C8B2A2 !important;
-        border-radius: 16px !important;
-        padding: 12px 14px !important;
-        box-shadow: 0 4px 12px rgba(140, 109, 88, 0.1) !important;
-        margin-top: 10px !important;
+        border-radius: 12px !important;
+        padding: 10px 12px !important;
+        box-shadow: 0 4px 10px rgba(140, 109, 88, 0.1) !important;
+        margin-top: 8px !important;
         width: 100% !important;
         box-sizing: border-box !important;
     }
@@ -129,8 +140,9 @@ st.markdown(
         background: #F8D7DA !important;
         color: #842029 !important;
         border-radius: 6px !important;
-        font-size: 12px !important;
-        padding: 2px 4px !important;
+        font-size: 11px !important;
+        padding: 0px !important;
+        min-height: 24px !important;
     }
     
     .cart-container div.stButton > button:hover {
@@ -138,10 +150,10 @@ st.markdown(
     }
 
     .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.4rem !important;
-        padding-right: 0.4rem !important;
+        padding-top: 0.2rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-left: 0.2rem !important;
+        padding-right: 0.2rem !important;
         max-width: 100% !important;
     }
     </style>
@@ -163,7 +175,7 @@ LANGUAGES = {
         "price": "ราคา",
         "baht": "บ.",
         "topping_label": "ท็อปปิ้ง:",
-        "no_topping": "เลือกท็อปปิ้ง...",
+        "no_topping": "เลือก...",
         "btn_add": "➕ สั่ง",
         "cart_title": "ตะกร้าของคุณ",
         "cart_empty": "ไม่มีรายการในตะกร้า",
@@ -184,7 +196,7 @@ LANGUAGES = {
         "price": "ဈေး",
         "baht": "ဘတ်",
         "topping_label": "ထပ်ဆောင်း:",
-        "no_topping": "ထပ်ဆောင်း ရွေးပါ...",
+        "no_topping": "ရွေးပါ...",
         "btn_add": "➕ မှာမည်",
         "cart_title": "ခြင်းတောင်း",
         "cart_empty": "ခြင်းတောင်းထဲတွင် မရှိပါ",
@@ -205,7 +217,7 @@ LANGUAGES = {
         "price": "ราคา",
         "baht": "฿",
         "topping_label": "配料 Topping:",
-        "no_topping": "Select toppings...",
+        "no_topping": "Select...",
         "btn_add": "➕ 点餐 Order",
         "cart_title": "购物车 Cart",
         "cart_empty": "购物车为空 Empty",
@@ -237,13 +249,13 @@ MENU_TRANSLATIONS = {
     "ชาแคนตาลูป": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
     "ชาแดงน้ำผึ้งมะนาว": {"🇲🇲 Myanmar": "ပျားရည် သံပုရာ လက်ဖက်နီ", "🇨🇳 中文/EN": "蜂蜜柠檬红茶 Honey Lemon Red Tea"},
     "ชาแดงปั่น": {"🇲🇲 Myanmar": "လက်ဖက်နီ ဖျော်စက်", "🇨🇳 中文/EN": "冰沙红茶 Red Tea Smoothie"},
-    "ชาไต้หวันบราウンชูการ์ปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား ဖျော်စက်", "🇨🇳 中文/EN": "黑糖台湾奶茶冰沙 Brown Sugar Milk Tea Smoothie"},
+    "ชาไต้หวันบราวน์ชูการ์ปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား ဖျော်စက်", "🇨🇳 中文/EN": "黑糖台湾奶茶冰沙 Brown Sugar Milk Tea Smoothie"},
     "ชาไต้หวันปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည် ဖျော်စက်", "🇨🇳 中文/EN": "台湾奶茶冰沙 Taiwan Milk Tea Smoothie"},
     "ชานมกาแฟ": {"🇲🇲 Myanmar": "နို့ ကော်ဖီ", "🇨🇳 中文/EN": "咖啡奶茶 Coffee Milk Tea"},
     "ชานมโกโก้": {"🇲🇲 Myanmar": "နို့ ကိုကိုး", "🇨🇳 中文/EN": "可可奶茶 Cocoa Milk Tea"},
     "ชานมโกโก้ปั่น": {"🇲🇲 Myanmar": "နို့ ကိုကိုး ဖျော်စက်", "🇨🇳 中文/EN": "可可奶茶冰沙 Cocoa Milk Tea Smoothie"},
     "ชานมคาราเมล": {"🇲🇲 Myanmar": "ကာရာမဲလ် နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "焦糖奶茶 Caramel Milk Tea"},
-    "ชานมไต้หวันบราウンชูการ์": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "黑糖台湾奶茶 Brown Sugar Taiwan Milk Tea"},
+    "ชานมไต้หวันบราวน์ชูการ์": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "黑糖台湾奶茶 Brown Sugar Taiwan Milk Tea"},
     "ชานมน้ำผึ้ง": {"🇲🇲 Myanmar": "ပျားရည် နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "蜂蜜奶茶 Honey Milk Tea"},
     "ชานมผลไม้": {"🇲🇲 Myanmar": "သစ်သီး နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "水果奶茶 Fruit Milk Tea"},
     "ชานมเผือก": {"🇲🇲 Myanmar": "ပိန်းဥ နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "香芋奶茶 Taro Milk Tea"}
@@ -328,7 +340,7 @@ t = LANGUAGES[selected_lang]
 st.markdown(
     f"""
     <div class="customer-header">
-        <h3 style="margin: 0; font-size: 16px; font-weight: 700;">{t['header_title']}</h3>
+        <h3 style="margin: 0; font-size: 15px; font-weight: 700;">{t['header_title']}</h3>
     </div>
     """, 
     unsafe_allow_html=True
@@ -355,8 +367,8 @@ else:
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
-    # ⚡ ปรับเป็น 2 คอลัมน์สำหรับจอมือถือ[cite: 3]
-    NUM_COLS = 2
+    # ⚡ กำหนดเป็น 3 เมนูต่อแถว
+    NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
@@ -374,8 +386,8 @@ else:
                         f"""
                         <div class="menu-card">
                             <div style="text-align: center;">
-                                <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
-                                <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                                <div style="font-weight: 700; font-size: 11px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.1; color: #2C221E; overflow: hidden;">{display_name}</div>
+                                <div style="color: #8C6D58; font-weight: 800; font-size: 12px; margin-top: 1px;">{price:.0f} {t['baht']}</div>
                             </div>
                             <div class="card-divider"></div>
                         """, 
@@ -438,7 +450,7 @@ else:
     st.markdown(
         f"""
         <div class="cart-container">
-            <h3 style="margin-top:0; margin-bottom: 12px; color: #3D342F; font-size: 16px;">🛒 {t['cart_title']}</h3>
+            <h3 style="margin-top:0; margin-bottom: 8px; color: #3D342F; font-size: 15px;">🛒 {t['cart_title']}</h3>
         """, 
         unsafe_allow_html=True
     )
@@ -447,10 +459,10 @@ else:
         col_name, col_price, col_del = st.columns([5, 3, 1], vertical_alignment="center")
         
         with col_name:
-            st.markdown(f"<span style='font-size: 13px; font-weight: 600; color: #2C221E;'>• {cart_item.get('display_name', cart_item['name'])}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 12px; font-weight: 600; color: #2C221E;'>• {cart_item.get('display_name', cart_item['name'])}</span>", unsafe_allow_html=True)
         
         with col_price:
-            st.markdown(f"<span style='font-size: 13px; font-weight: 700; color: #8C6D58;'>{cart_item['price']:.0f} {t['baht']}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 12px; font-weight: 700; color: #8C6D58;'>{cart_item['price']:.0f} {t['baht']}</span>", unsafe_allow_html=True)
         
         with col_del:
             if st.button("❌", key=f"remove_cart_{idx}", help="ลบรายการนี้"):
@@ -460,13 +472,13 @@ else:
         total_price += cart_item['price']
         total_cost += cart_item['cost']
 
-    st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 10px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 8px 0;'>", unsafe_allow_html=True)
 
     col_tot_label, col_tot_val = st.columns([5, 4], vertical_alignment="center")
     with col_tot_label:
-        st.markdown(f"<h4 style='margin:0; color: #3D342F; font-size: 14px;'>💰 {t['total_price']}:</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='margin:0; color: #3D342F; font-size: 13px;'>💰 {t['total_price']}:</h4>", unsafe_allow_html=True)
     with col_tot_val:
-        st.markdown(f"<h3 style='margin:0; color: #8C6D58; font-weight: 800; font-size: 16px;'>{total_price:.0f} {t['baht']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='margin:0; color: #8C6D58; font-weight: 800; font-size: 15px;'>{total_price:.0f} {t['baht']}</h3>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
