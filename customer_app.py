@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง ---
+# --- CSS ตกแต่ง (ล็อกไม่ให้จอล้นซ้ายขวา 100%) ---
 st.markdown(
     """
     <style>
@@ -37,102 +37,86 @@ st.markdown(
     footer { visibility: hidden; }
     header[data-testid="stHeader"] { visibility: hidden !important; }
 
-    .stApp {
+    /* 🔒 ป้องกัน Scrollbar แนวนอนเด็ดขาด */
+    html, body, .stApp {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
         background-color: #F4EFEA !important;
         color: #3D342F !important;
     }
 
-    .customer-header {
-        background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
-        padding: 10px;
-        border-radius: 12px;
-        color: #FFFFFF;
-        text-align: center;
-        margin-bottom: 12px;
+    .main .block-container {
+        padding-top: 0.5rem !important;
+        padding-bottom: 1.5rem !important;
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        max-width: 100% !important;
+        overflow-x: hidden !important;
     }
 
-    /* ⚡ ล็อก Layout Grid 3 คอลัมน์ ⚡ */
+    .customer-header {
+        background: linear-gradient(135deg, #8C6D58 0%, #6E5341 100%);
+        padding: 8px;
+        border-radius: 10px;
+        color: #FFFFFF;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    /* ⚡ จัด Layout Columns ไม่ให้ดันขอบจอ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 8px !important;
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
-    /* 📦 การ์ดเมนูเครื่องดื่ม */
+    /* การ์ดเมนูเครื่องดื่ม */
     .menu-card {
         background-color: #FFFFFF !important;
-        border: 2px solid #C8B2A2 !important;
-        border-radius: 12px !important;
-        padding: 8px 10px !important;
-        box-shadow: 0 2px 6px rgba(140, 109, 88, 0.12) !important;
-        margin-bottom: 6px !important;
+        border: 1.5px solid #C8B2A2 !important;
+        border-radius: 10px !important;
+        padding: 6px 4px !important;
+        box-shadow: 0 2px 4px rgba(140, 109, 88, 0.08) !important;
+        margin-bottom: 4px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .card-divider {
         border-top: 1px dashed #D3C4B8;
-        margin: 6px 0;
+        margin: 4px 0;
     }
 
     /* ปุ่มกดเพิ่มเมนู */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
-        border-radius: 8px !important;
+        border-radius: 6px !important;
         font-weight: 600 !important;
-        font-size: 13px !important;
-        padding: 4px 8px !important;
+        font-size: 12px !important;
+        padding: 2px 0px !important;
         border: none !important;
         width: 100% !important;
+        min-height: 32px !important;
     }
 
     div.stButton > button:hover {
         background: #6E5341 !important;
     }
 
-    /* ⚡ ปรับแต่ง Multiselect ⚡ */
-    div[data-testid="stMultiSelect"] label {
-        font-size: 11px !important;
-        font-weight: 600 !important;
-        color: #554840 !important;
-        margin-bottom: 2px !important;
-    }
-
-    div[data-testid="stMultiSelect"] span[data-baseweb="tag"] {
-        background-color: #8C6D58 !important;
-        color: #FFFFFF !important;
-        font-size: 11px !important;
-        border-radius: 4px !important;
-    }
-
-    /* 🛒 กรอบใหญ่ใบเสร็จตะกร้าสินค้า */
+    /* ตะกร้าสินค้า */
     .cart-container {
         background-color: #FFFFFF !important;
         border: 2px solid #C8B2A2 !important;
-        border-radius: 16px !important;
-        padding: 16px 20px !important;
-        box-shadow: 0 4px 12px rgba(140, 109, 88, 0.1) !important;
-        margin-top: 10px !important;
-    }
-
-    /* สไตล์ปุ่มลบ ❌ ในตะกร้า */
-    .cart-container div.stButton > button {
-        background: #F8D7DA !important;
-        color: #842029 !important;
-        border-radius: 6px !important;
-        font-size: 12px !important;
-        padding: 2px 6px !important;
-    }
-    
-    .cart-container div.stButton > button:hover {
-        background: #F5C2C7 !important;
-    }
-
-    .block-container {
-        padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
-        padding-left: 0.5rem !important;
-        padding-right: 0.5rem !important;
+        border-radius: 12px !important;
+        padding: 10px 12px !important;
+        box-shadow: 0 4px 10px rgba(140, 109, 88, 0.1) !important;
+        margin-top: 8px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
     </style>
     """, 
@@ -140,71 +124,71 @@ st.markdown(
 )
 
 # ==========================================
-# 🌐 พจนานุกรมแปลภาษา UI
+# 🌐 พจนานุกรมแปลภาษา UI (ปรับข้อความรองรับ Takeaway)
 # ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
-        "header_title": "🧋 เมนูเครื่องดื่ม",
-        "table_label": "📍 โต๊ะ/ชื่อ:",
-        "table_default": "โต๊ะ 1",
+        "header_title": "🧋 สั่งเครื่องดื่ม (กลับบ้าน)",
+        "table_label": "👤 ชื่อลูกค้า / คิวที่:",
+        "table_default": "สั่งกลับบ้าน",
         "search_label": "🔍 ค้นหา:",
         "search_placeholder": "พิมพ์ชื่อ...",
         "select_menu": "👇 เลือกเมนู:",
         "price": "ราคา",
         "baht": "บ.",
-        "topping_label": "ท็อปปิ้ง (เลือกได้มากกว่า 1):",
-        "no_topping": "เลือกท็อปปิ้ง...",
+        "topping_label": "ท็อปปิ้ง:",
+        "no_topping": "เลือก...",
         "btn_add": "➕ สั่ง",
-        "cart_title": "ตะกร้าของคุณ",
-        "cart_empty": "ไม่มีรายการในตะกร้า",
+        "cart_title": "รายการที่เลือก",
+        "cart_empty": "ยังไม่ได้เลือกรายการ",
         "total_price": "ราคารวม",
-        "btn_order": "🚀 ยืนยันการสั่งซื้อ",
-        "btn_clear": "🗑️ ล้างตะกร้า",
-        "err_table": "⚠️ กรุณาระบุหมายเลขโต๊ะหรือชื่อ",
-        "success_msg": "🎉 ส่งออเดอร์เรียบร้อย!",
-        "toast_added": "เพิ่มแล้ว!"
+        "btn_order": "🚀 ยืนยันสั่งซื้อ",
+        "btn_clear": "🗑️ ล้างรายการ",
+        "err_table": "⚠️ กรุณาระบุชื่อหรือวิธีเรียกคิว",
+        "success_msg": "🎉 ส่งออเดอร์เรียบร้อย นั่งรอเรียกคิวได้เลยครับ!",
+        "toast_added": "เพิ่มรายการแล้ว!"
     },
     "🇲🇲 Myanmar": {
-        "header_title": "🧋 အဖျော်ယမကာ မီနူး",
-        "table_label": "📍 စားပွဲ/အမည်:",
-        "table_default": "စားပွဲ ၁",
+        "header_title": "🧋 အဖျော်ယမကာ မှာယူရန် (ပါဆယ်)",
+        "table_label": "👤 အမည် / ကူပွန်:",
+        "table_default": "ပါဆယ်",
         "search_label": "🔍 ရှာရန်:",
         "search_placeholder": "ရှာရန်...",
         "select_menu": "👇 မီနူးရွေးပါ:",
         "price": "ဈေး",
         "baht": "ဘတ်",
-        "topping_label": "ထပ်ဆောင်း (အများအပြား ရွေးနိုင်သည်):",
-        "no_topping": "ထပ်ဆောင်း ရွေးပါ...",
+        "topping_label": "ထပ်ဆောင်း:",
+        "no_topping": "ရွေးပါ...",
         "btn_add": "➕ မှာမည်",
         "cart_title": "ခြင်းတောင်း",
         "cart_empty": "ခြင်းတောင်းထဲတွင် မရှိပါ",
         "total_price": "စုစုပေါင်း",
         "btn_order": "🚀 မှာယူမည်",
         "btn_clear": "🗑️ ပယ်ဖျက်",
-        "err_table": "⚠️ စားပွဲနံပါတ် ထည့်ပါ",
+        "err_table": "⚠️ အမည် ထည့်ပါ",
         "success_msg": "🎉 မှာယူမှု အောင်မြင်ပါသည်!",
         "toast_added": "ထည့်ပြီးပါပြီ!"
     },
     "🇨🇳 中文/EN": {
-        "header_title": "🧋 菜单 Menu",
-        "table_label": "📍 桌号 Table:",
-        "table_default": "Table 1",
-        "search_label": "🔍 搜索 Search:",
+        "header_title": "🧋 Takeaway Order 🥤",
+        "table_label": "👤 Name / Queue:",
+        "table_default": "Takeaway",
+        "search_label": "🔍 Search:",
         "search_placeholder": "Search...",
-        "select_menu": "👇 选择饮料 Select:",
+        "select_menu": "👇 Select:",
         "price": "ราคา",
         "baht": "฿",
-        "topping_label": "配料 Topping (Multiple):",
-        "no_topping": "Select toppings...",
-        "btn_add": "➕ 点餐 Order",
-        "cart_title": "购物车 Cart",
-        "cart_empty": "购物车为空 Empty",
-        "total_price": "总计 Total",
-        "btn_order": "🚀 确认下单 Confirm",
-        "btn_clear": "🗑️ 清空",
-        "err_table": "⚠️ 请填写桌号 Enter table",
-        "success_msg": "🎉 下单成功 Order Sent!",
-        "toast_added": "已加入 Added!"
+        "topping_label": "Topping:",
+        "no_topping": "Select...",
+        "btn_add": "➕ Order",
+        "cart_title": "Cart",
+        "cart_empty": "Cart Empty",
+        "total_price": "Total",
+        "btn_order": "🚀 Confirm",
+        "btn_clear": "🗑️ Clear",
+        "err_table": "⚠️ Please enter Name / Queue No.",
+        "success_msg": "🎉 Order Sent! Please take a seat.",
+        "toast_added": "Added!"
     }
 }
 
@@ -276,7 +260,6 @@ def load_db_data():
         conn = get_db_connection()
         c = conn.cursor()
         
-        # 1. ดึงเมนู
         try:
             c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
             menu_rows = c.fetchall()
@@ -284,7 +267,6 @@ def load_db_data():
         except Exception as e:
             st.error(f"❌ Error ดึงข้อมูลเมนู: {e}")
             
-        # 2. ดึงท็อปปิ้ง
         try:
             c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
             topping_rows = c.fetchall()
@@ -331,8 +313,6 @@ with col_top2:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 current_menu, current_toppings = load_db_data()
-
-# รายการตัวเลือกท็อปปิ้งสำหรับ Multiselect
 topping_options = [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
 
 if not current_menu:
@@ -341,11 +321,11 @@ else:
     filtered_items = []
     for item_name_th, info in current_menu.items():
         display_name = translate_item(item_name_th, selected_lang)
-
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
-    NUM_COLS = 3
+    # 💡 2 คอลัมน์ ขนาดกำลังดี อ่านง่าย สบายตาบนมือถือ
+    NUM_COLS = 2
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
@@ -354,7 +334,6 @@ else:
                 price = info["price"]
                 cost = info["cost"]
 
-                # ⚡ สร้าง Counter สำหรับทำ Key ไดนามิก (แก้ปัญหา Error)
                 counter_key = f"counter_{item_name_th}"
                 if counter_key not in st.session_state:
                     st.session_state[counter_key] = 0
@@ -364,15 +343,14 @@ else:
                         f"""
                         <div class="menu-card">
                             <div style="text-align: center;">
-                                <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
-                                <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                                <div style="font-weight: 700; font-size: 13px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
+                                <div style="color: #8C6D58; font-weight: 800; font-size: 13px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                             </div>
                             <div class="card-divider"></div>
                         """, 
                         unsafe_allow_html=True
                     )
                     
-                    # 🌟 ใช้ Key แบบไดนามิกที่ต่อท้ายด้วยตัวเลข Counter
                     multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
@@ -386,7 +364,6 @@ else:
                         total_tp_cost = 0.0
                         selected_tp_names = []
 
-                        # วนลูปคำนวณราคาท็อปปิ้ง
                         if selected_tps:
                             for selected_tp in selected_tps:
                                 raw_tp_name = selected_tp.split(" (+")[0]
@@ -409,9 +386,7 @@ else:
                             "cost": final_cost
                         })
 
-                        # ⚡ ปรับค่า Counter เพิ่มขึ้น 1 เพื่อรีเซ็ตช่อง Multiselect เป็นช่องว่างทันทีโดยไม่ติด Error
                         st.session_state[counter_key] += 1
-
                         st.toast(f"{t['toast_added']}", icon="🛒")
                         time.sleep(0.2)
                         st.rerun()
@@ -432,19 +407,19 @@ else:
     st.markdown(
         f"""
         <div class="cart-container">
-            <h3 style="margin-top:0; margin-bottom: 12px; color: #3D342F; font-size: 18px;">🛒 {t['cart_title']}</h3>
+            <h3 style="margin-top:0; margin-bottom: 8px; color: #3D342F; font-size: 15px;">🛒 {t['cart_title']}</h3>
         """, 
         unsafe_allow_html=True
     )
 
     for idx, cart_item in enumerate(st.session_state.cart):
-        col_name, col_price, col_del = st.columns([6, 2, 1], vertical_alignment="center")
+        col_name, col_price, col_del = st.columns([5, 3, 1], vertical_alignment="center")
         
         with col_name:
-            st.markdown(f"<span style='font-size: 14px; font-weight: 600; color: #2C221E;'>• {cart_item.get('display_name', cart_item['name'])}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 12px; font-weight: 600; color: #2C221E;'>• {cart_item.get('display_name', cart_item['name'])}</span>", unsafe_allow_html=True)
         
         with col_price:
-            st.markdown(f"<span style='font-size: 14px; font-weight: 700; color: #8C6D58;'>{cart_item['price']:.0f} {t['baht']}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 12px; font-weight: 700; color: #8C6D58;'>{cart_item['price']:.0f} {t['baht']}</span>", unsafe_allow_html=True)
         
         with col_del:
             if st.button("❌", key=f"remove_cart_{idx}", help="ลบรายการนี้"):
@@ -454,13 +429,13 @@ else:
         total_price += cart_item['price']
         total_cost += cart_item['cost']
 
-    st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 12px 0;'>", unsafe_allow_html=True)
+    st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 8px 0;'>", unsafe_allow_html=True)
 
-    col_tot_label, col_tot_val = st.columns([6, 3], vertical_alignment="center")
+    col_tot_label, col_tot_val = st.columns([5, 4], vertical_alignment="center")
     with col_tot_label:
-        st.markdown(f"<h4 style='margin:0; color: #3D342F; font-size: 15px;'>💰 {t['total_price']}:</h4>", unsafe_allow_html=True)
+        st.markdown(f"<h4 style='margin:0; color: #3D342F; font-size: 13px;'>💰 {t['total_price']}:</h4>", unsafe_allow_html=True)
     with col_tot_val:
-        st.markdown(f"<h3 style='margin:0; color: #8C6D58; font-weight: 800; font-size: 18px;'>{total_price:.0f} {t['baht']}</h3>", unsafe_allow_html=True)
+        st.markdown(f"<h3 style='margin:0; color: #8C6D58; font-weight: 800; font-size: 15px;'>{total_price:.0f} {t['baht']}</h3>", unsafe_allow_html=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
 
