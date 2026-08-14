@@ -28,18 +28,14 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (ล็อคไม่ให้จอล้น + ซ่อน Streamlit Badge/Footer ด้านล่าง) ---
+# --- CSS ตกแต่ง (ล็อกไม่ให้จอล้นซ้ายขวา 100%) ---
 st.markdown(
     """
     <style>
-    /* 🔒 ซ่อน Header, Toolbar, MainMenu และ Footer (รวมถึงกล่อง "โฮสต์โดย Streamlit") */
     [data-testid="stToolbar"] { display: none !important; }
     #MainMenu { visibility: hidden; }
+    footer { visibility: hidden; }
     header[data-testid="stHeader"] { visibility: hidden !important; }
-    
-    footer { display: none !important; visibility: hidden !important; }
-    [data-testid="stStatusWidget"] { display: none !important; visibility: hidden !important; }
-    .viewerBadge_container__1A12q, .viewerBadge_link__1S137 { display: none !important; }
 
     /* 🔒 ป้องกัน Scrollbar แนวนอนเด็ดขาด */
     html, body, .stApp {
@@ -51,7 +47,7 @@ st.markdown(
 
     .main .block-container {
         padding-top: 0.5rem !important;
-        padding-bottom: 2rem !important;
+        padding-bottom: 1.5rem !important;
         padding-left: 0.5rem !important;
         padding-right: 0.5rem !important;
         max-width: 100% !important;
