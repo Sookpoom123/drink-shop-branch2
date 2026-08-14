@@ -237,7 +237,6 @@ def init_db():
         )
     ''')
 
-    # ➕ เพิ่มตารางสำหรับบันทึกรายจ่าย
     c.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
             id SERIAL PRIMARY KEY,
@@ -458,7 +457,14 @@ def delete_sale_by_id(record_id):
     conn.close()
     st.cache_data.clear()
 
-# --- ฟังก์ชันจัดการรายจ่ายใน Database ---
+def cancel_order_by_id(order_id):
+    """ฟังก์ชันยกเลิกออเดอร์โดยเปลี่ยนสถานะเป็น cancelled"""
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("UPDATE orders SET status = 'cancelled' WHERE id = %s", (order_id,))
+    conn.commit()
+    conn.close()
+
 def add_expense(expense_date, title, amount, note, recorded_by):
     conn = get_db_connection()
     c = conn.cursor()
@@ -518,6 +524,20 @@ def profile_settings_dialog():
                 st.warning("กรุณาเลือกไฟล์รูปภาพก่อน")
     with col2:
         if st.button("❌ ปิด", use_container_width=True, key="btn_close_profile"):
+            st.rerun()
+
+@st.dialog("⚠️ ยืนยันการยกเลิกออเดอร์")
+def confirm_cancel_order_dialog(order_id, table_no):
+    st.write(f"คุณต้องการยกเลิกออเดอร์ **#{order_id}** ของ **{table_no}** ใช่หรือไม่?")
+    col_confirm, col_cancel = st.columns(2)
+    with col_confirm:
+        if st.button("❌ ยืนยันยกเลิก", use_container_width=True, key="btn_confirm_cancel_ord"):
+            cancel_order_by_id(order_id)
+            st.success(f"ยกเลิกออเดอร์ #{order_id} เรียบร้อย!")
+            time.sleep(0.5)
+            st.rerun()
+    with col_cancel:
+        if st.button("🔙 ถอยกลับ", use_container_width=True, key="btn_back_cancel_ord"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบรายการขาย")
@@ -649,6 +669,10 @@ def render_kitchen_orders():
                             st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
                             time.sleep(0.5)
                             st.rerun()
+
+                        # ➕ เพิ่มปุ่มยกเลิกออเดอร์
+                        if st.button("❌ ยกเลิก", key=f"cancel_order_{order_id}", use_container_width=True):
+                            confirm_cancel_order_dialog(order_id, table_no)
 
         cur.close()
         conn.close()
