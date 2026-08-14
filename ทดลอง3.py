@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import psycopg2
+from psycopg2 import pool
 import streamlit as st
 import time
 import json
@@ -15,6 +16,35 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# ==========================================
+# ⚡ ระบบ DATABASE CONNECTION POOLING (แก้ปัญหาเว็บหน่วงรุนแรง)
+# ==========================================
+@st.cache_resource
+def get_db_pool():
+    db_url = None
+    if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
+        db_url = st.secrets["postgres"]["url"]
+    elif "postgres_url" in st.secrets:
+        db_url = st.secrets["postgres_url"]
+    elif "DATABASE_URL" in st.secrets:
+        db_url = st.secrets["DATABASE_URL"]
+    
+    if not db_url:
+        st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets")
+        st.stop()
+        
+    # สร้าง Pool เชื่อมต่อล่วงหน้า 1-10 connections ช่วยลดเวลาเปิด-ปิด DB
+    return pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=db_url)
+
+def get_db_connection():
+    db_pool = get_db_pool()
+    return db_pool.getconn()
+
+def release_db_connection(conn):
+    if conn:
+        db_pool = get_db_pool()
+        db_pool.putconn(conn)
 
 # ==========================================
 # 🌐 พจนานุกรมและระบบแปลภาษา (Foreign -> Thai)
@@ -83,34 +113,28 @@ TRANSLATION_MAP = {
     "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
     "တိုင်ဝမ် နို့လက်ဖက်ရည်ဖျော်ရည်": "ชานมไต้หวันปั่น", "ထိုင်း နို့လက်ဖက်ရည်ဖျော်ရည်": "ชาไทยนมปั่น",
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
-    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรุ้ตสลัด",
+    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု้တสလัด",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
-    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ์", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
+    "သကြားညိုဂျယ်လီ": "บุกบราวน์ชูการ်", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
 }
 
 def translate_to_thai(text):
-    """ฟังก์ชันแปลงข้อความต่างประเทศเป็นภาษาไทยแบบยืดหยุ่น ยึด Key ที่ยาวสุดก่อน"""
     if not text:
         return text
     
     translated_text = str(text).strip()
-
-    # จัดเรียง Key ตามความยาวจากยาวไปสั้น เพื่อไม่ให้คำสั้นตัดหน้าคำยาว
     sorted_keys = sorted(TRANSLATION_MAP.keys(), key=len, reverse=True)
 
     for foreign_str in sorted_keys:
         if foreign_str in translated_text:
             translated_text = translated_text.replace(foreign_str, TRANSLATION_MAP[foreign_str])
             
-    # กรณีภาษาพม่า/จีนที่มีเว้นวรรคไม่ตรงกัน ทำการนอร์มัลไลซ์ space
     clean_text = re.sub(r'\s+', ' ', translated_text).strip()
-    
     for foreign_str in sorted_keys:
         clean_foreign = re.sub(r'\s+', ' ', foreign_str).strip()
         if clean_foreign in clean_text:
             clean_text = clean_text.replace(clean_foreign, TRANSLATION_MAP[foreign_str])
 
-    # ตัดคำซ้ำซ้อน
     words = clean_text.split()
     dedup_words = []
     for w in words:
@@ -118,26 +142,6 @@ def translate_to_thai(text):
             dedup_words.append(w)
             
     return " ".join(dedup_words)
-
-# --- เชื่อมต่อฐานข้อมูล Connection Pool / Fast Connect ---
-@st.cache_resource
-def get_db_connection_string():
-    db_url = None
-    if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
-        db_url = st.secrets["postgres"]["url"]
-    elif "postgres_url" in st.secrets:
-        db_url = st.secrets["postgres_url"]
-    elif "DATABASE_URL" in st.secrets:
-        db_url = st.secrets["DATABASE_URL"]
-    
-    if not db_url:
-        st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets กรุณาตรวจสอบการตั้งค่า Secrets บน Streamlit Cloud")
-        st.stop()
-        
-    return db_url
-
-def get_db_connection():
-    return psycopg2.connect(get_db_connection_string())
 
 # ==========================================
 # 🎨 CSS Optimization
@@ -292,191 +296,214 @@ def make_hashes(password):
 def init_db():
     conn = get_db_connection()
     c = conn.cursor()
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS sales (
-            id SERIAL PRIMARY KEY,
-            sale_date TEXT,
-            item_name TEXT,
-            qty INTEGER,
-            total_price REAL,
-            total_cost REAL,
-            total_profit REAL,
-            seller_name TEXT,
-            payment_method TEXT
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            username TEXT PRIMARY KEY,
-            password TEXT,
-            role TEXT DEFAULT 'user',
-            last_active TEXT,
-            profile_img TEXT
-        )
-    ''')
-    
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            id SERIAL PRIMARY KEY,
-            table_number VARCHAR(50),
-            items_json TEXT,
-            total_price NUMERIC(10, 2),
-            total_cost NUMERIC(10, 2),
-            status VARCHAR(20) DEFAULT 'pending',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
+    try:
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS sales (
+                id SERIAL PRIMARY KEY,
+                sale_date TEXT,
+                item_name TEXT,
+                qty INTEGER,
+                total_price REAL,
+                total_cost REAL,
+                total_profit REAL,
+                seller_name TEXT,
+                payment_method TEXT
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS users (
+                username TEXT PRIMARY KEY,
+                password TEXT,
+                role TEXT DEFAULT 'user',
+                last_active TEXT,
+                profile_img TEXT
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS orders (
+                id SERIAL PRIMARY KEY,
+                table_number VARCHAR(50),
+                items_json TEXT,
+                total_price NUMERIC(10, 2),
+                total_cost NUMERIC(10, 2),
+                status VARCHAR(20) DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS menu_items (
+                name TEXT PRIMARY KEY,
+                cost REAL,
+                price REAL
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS toppings (
+                name TEXT PRIMARY KEY,
+                price REAL
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS expenses (
+                id SERIAL PRIMARY KEY,
+                expense_date TEXT,
+                title TEXT,
+                amount REAL,
+                note TEXT,
+                recorded_by TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date)")
+        
+        c.execute("SELECT COUNT(*) FROM menu_items")
+        if c.fetchone()[0] == 0:
+            for name, info in DEFAULT_MENU.items():
+                c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                            (name, info['cost'], info['price']))
 
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS menu_items (
-            name TEXT PRIMARY KEY,
-            cost REAL,
-            price REAL
-        )
-    ''')
-
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS toppings (
-            name TEXT PRIMARY KEY,
-            price REAL
-        )
-    ''')
-
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS expenses (
-            id SERIAL PRIMARY KEY,
-            expense_date TEXT,
-            title TEXT,
-            amount REAL,
-            note TEXT,
-            recorded_by TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # เพิ่ม Index ป้องกัน DB หน่วงเวลาคิวรี
-    c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
-    c.execute("CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date)")
-    
-    c.execute("SELECT COUNT(*) FROM menu_items")
-    if c.fetchone()[0] == 0:
-        for name, info in DEFAULT_MENU.items():
-            c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
-                        (name, info['cost'], info['price']))
-
-    c.execute("SELECT COUNT(*) FROM toppings")
-    if c.fetchone()[0] == 0:
-        for name, price in DEFAULT_TOPPINGS.items():
-            c.execute("INSERT INTO toppings (name, price) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING",
-                        (name, price))
-            
-    conn.commit()
-    conn.close()
+        c.execute("SELECT COUNT(*) FROM toppings")
+        if c.fetchone()[0] == 0:
+            for name, price in DEFAULT_TOPPINGS.items():
+                c.execute("INSERT INTO toppings (name, price) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING",
+                            (name, price))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def reset_and_sync_toppings():
     conn = get_db_connection()
     c = conn.cursor()
-    for name, price in DEFAULT_TOPPINGS.items():
-        c.execute("""
-            INSERT INTO toppings (name, price)
-            VALUES (%s, %s)
-            ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
-        """, (name, price))
-    conn.commit()
-    conn.close()
+    try:
+        for name, price in DEFAULT_TOPPINGS.items():
+            c.execute("""
+                INSERT INTO toppings (name, price)
+                VALUES (%s, %s)
+                ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
+            """, (name, price))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def update_user_activity(username):
     if username:
         conn = get_db_connection()
         c = conn.cursor()
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("UPDATE users SET last_active = %s WHERE username = %s", (now_str, username))
-        conn.commit()
-        conn.close()
+        try:
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("UPDATE users SET last_active = %s WHERE username = %s", (now_str, username))
+            conn.commit()
+        finally:
+            c.close()
+            release_db_connection(conn)
 
 def update_user_profile_img(username, img_bytes):
     encoded_img = base64.b64encode(img_bytes).decode('utf-8')
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET profile_img = %s WHERE username = %s", (encoded_img, username))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("UPDATE users SET profile_img = %s WHERE username = %s", (encoded_img, username))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def get_user_profile_img(username):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT profile_img FROM users WHERE username = %s", (username,))
-    row = c.fetchone()
-    conn.close()
-    if row and row[0]:
-        return row[0]
-    return None
+    try:
+        c.execute("SELECT profile_img FROM users WHERE username = %s", (username,))
+        row = c.fetchone()
+        return row[0] if row and row[0] else None
+    finally:
+        c.close()
+        release_db_connection(conn)
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
-    rows = c.fetchall()
-    conn.close()
-    menu_dict = {}
-    for r in rows:
-        menu_dict[r[0]] = {"cost": float(r[1]) if r[1] is not None else 0.0, "price": float(r[2])}
-    return menu_dict
+    try:
+        c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
+        rows = c.fetchall()
+        menu_dict = {}
+        for r in rows:
+            menu_dict[r[0]] = {"cost": float(r[1]) if r[1] is not None else 0.0, "price": float(r[2])}
+        return menu_dict
+    finally:
+        c.close()
+        release_db_connection(conn)
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=60)
 def get_toppings_from_db():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
-    rows = c.fetchall()
-    conn.close()
-    toppings_dict = {}
-    for r in rows:
-        toppings_dict[r[0]] = float(r[1])
-    return toppings_dict
+    try:
+        c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
+        rows = c.fetchall()
+        toppings_dict = {}
+        for r in rows:
+            toppings_dict[r[0]] = float(r[1])
+        return toppings_dict
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def save_menu_item_db(name, price, cost=0.0):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO menu_items (name, cost, price) 
-        VALUES (%s, %s, %s)
-        ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
-    """, (name, cost, price))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("""
+            INSERT INTO menu_items (name, cost, price) 
+            VALUES (%s, %s, %s)
+            ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
+        """, (name, cost, price))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def save_topping_db(name, price):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("""
-        INSERT INTO toppings (name, price) 
-        VALUES (%s, %s)
-        ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
-    """, (name, price))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("""
+            INSERT INTO toppings (name, price) 
+            VALUES (%s, %s)
+            ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
+        """, (name, price))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def delete_menu_item_db(name):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM menu_items WHERE name = %s", (name,))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("DELETE FROM menu_items WHERE name = %s", (name,))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def delete_topping_db(name):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM toppings WHERE name = %s", (name,))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("DELETE FROM toppings WHERE name = %s", (name,))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def add_user(username, password, role='user'):
@@ -487,122 +514,150 @@ def add_user(username, password, role='user'):
         c.execute('INSERT INTO users (username, password, role, last_active) VALUES (%s, %s, %s, %s)', 
                     (username, make_hashes(password), role, now_str))
         conn.commit()
-        conn.close()
         return True
     except psycopg2.IntegrityError:
-        conn.close()
         return False
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def login_user(username, password):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT username, role FROM users WHERE username = %s AND password = %s',
-                (username, make_hashes(password)))
-    data = c.fetchone()
-    conn.close()
-    return data
+    try:
+        c.execute('SELECT username, role FROM users WHERE username = %s AND password = %s',
+                    (username, make_hashes(password)))
+        return c.fetchone()
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def get_user_role(username):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT role FROM users WHERE username = %s', (username,))
-    data = c.fetchone()
-    conn.close()
-    return data[0] if data else "user"
+    try:
+        c.execute('SELECT role FROM users WHERE username = %s', (username,))
+        data = c.fetchone()
+        return data[0] if data else "user"
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def get_all_users_with_status():
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('SELECT username, role, last_active FROM users')
-    rows = c.fetchall()
-    conn.close()
+    try:
+        c.execute('SELECT username, role, last_active FROM users')
+        rows = c.fetchall()
+        users_status = []
+        now = datetime.now()
 
-    users_status = []
-    now = datetime.now()
-
-    for username, role, last_active in rows:
-        is_online = False
-        if last_active:
-            try:
-                last_time = datetime.strptime(last_active, "%Y-%m-%d %H:%M:%S")
-                if (now - last_time).total_seconds() < 300:
-                    is_online = True
-            except ValueError:
-                pass
-        
-        status_str = "🟢 Online" if is_online else "⚪ Offline"
-        users_status.append({
-            "ผู้ใช้งาน": username,
-            "สิทธิ์": role.upper() if role else "USER",
-            "สถานะ": status_str,
-            "ใช้งานล่าสุด": last_active if last_active else "ไม่ระบุ"
-        })
-    return users_status
+        for username, role, last_active in rows:
+            is_online = False
+            if last_active:
+                try:
+                    last_time = datetime.strptime(last_active, "%Y-%m-%d %H:%M:%S")
+                    if (now - last_time).total_seconds() < 300:
+                        is_online = True
+                except ValueError:
+                    pass
+            
+            status_str = "🟢 Online" if is_online else "⚪ Offline"
+            users_status.append({
+                "ผู้ใช้งาน": username,
+                "สิทธิ์": role.upper() if role else "USER",
+                "สถานะ": status_str,
+                "ใช้งานล่าสุด": last_active if last_active else "ไม่ระบุ"
+            })
+        return users_status
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def delete_user(username):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('DELETE FROM users WHERE username = %s', (username,))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute('DELETE FROM users WHERE username = %s', (username,))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def set_user_offline(username):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("UPDATE users SET last_active = NULL WHERE username = %s", (username,))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("UPDATE users SET last_active = NULL WHERE username = %s", (username,))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=15)
 def get_sales_by_date(selected_date_str):
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT * FROM sales WHERE sale_date = %s", conn, params=(selected_date_str,))
-    conn.close()
-    return df
+    try:
+        df = pd.read_sql_query("SELECT * FROM sales WHERE sale_date = %s", conn, params=(selected_date_str,))
+        return df
+    finally:
+        release_db_connection(conn)
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=30)
 def get_all_sales():
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT * FROM sales", conn)
-    conn.close()
-    return df
+    try:
+        df = pd.read_sql_query("SELECT * FROM sales", conn)
+        return df
+    finally:
+        release_db_connection(conn)
 
 def delete_sale_by_id(record_id):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM sales WHERE id = %s", (record_id,))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("DELETE FROM sales WHERE id = %s", (record_id,))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def add_expense(expense_date, title, amount, note, recorded_by):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute('''
-        INSERT INTO expenses (expense_date, title, amount, note, recorded_by)
-        VALUES (%s, %s, %s, %s, %s)
-    ''', (str(expense_date), title, amount, note, recorded_by))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute('''
+            INSERT INTO expenses (expense_date, title, amount, note, recorded_by)
+            VALUES (%s, %s, %s, %s, %s)
+        ''', (str(expense_date), title, amount, note, recorded_by))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
-@st.cache_data(ttl=10)
+@st.cache_data(ttl=15)
 def get_expenses_by_date(selected_date_str):
     conn = get_db_connection()
-    df = pd.read_sql_query("SELECT * FROM expenses WHERE expense_date = %s ORDER BY id DESC", conn, params=(selected_date_str,))
-    conn.close()
-    return df
+    try:
+        df = pd.read_sql_query("SELECT * FROM expenses WHERE expense_date = %s ORDER BY id DESC", conn, params=(selected_date_str,))
+        return df
+    finally:
+        release_db_connection(conn)
 
 def delete_expense_by_id(record_id):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM expenses WHERE id = %s", (record_id,))
-    conn.commit()
-    conn.close()
+    try:
+        c.execute("DELETE FROM expenses WHERE id = %s", (record_id,))
+        conn.commit()
+    finally:
+        c.close()
+        release_db_connection(conn)
     st.cache_data.clear()
 
 def complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, items_count, o_total_price, o_total_cost):
-    """ฟังก์ชันจัดการย้ายออเดอร์จากครัวลงตาราง Sales อย่างปลอดภัย"""
     conn = get_db_connection()
     cur = conn.cursor()
     try:
@@ -627,7 +682,7 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
         return False
     finally:
         cur.close()
-        conn.close()
+        release_db_connection(conn)
 
 # ==========================================
 # 🔔 POP-UP DIALOGS
@@ -734,8 +789,8 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที ---
-@st.fragment(run_every="5s")
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ปรับระยะเวลาเป็น 10s เพื่อลดภาระเครื่อง ---
+@st.fragment(run_every="10s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
     st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
@@ -746,7 +801,7 @@ def render_kitchen_orders():
         cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
         pending_orders = cur.fetchall()
         cur.close()
-        conn.close()
+        release_db_connection(conn)
 
         if not pending_orders:
             st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
@@ -756,7 +811,6 @@ def render_kitchen_orders():
                 order_id, table_no, items_json, o_total_price, o_total_cost, created_at = order
                 table_no_translated = translate_to_thai(table_no)
                 
-                # แปลง JSON ป้องกัน Error
                 if isinstance(items_json, str):
                     try:
                         items = json.loads(items_json)
