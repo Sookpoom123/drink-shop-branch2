@@ -610,11 +610,15 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที ---
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ทุกๆ 5 วินาที (แปลงเป็นภาษาไทยเสมอ) ---
 @st.fragment(run_every="5s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
     st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
+
+    # โหลดเมนูภาษาไทยฉบับ Master มาไว้เทียบ
+    db_menu = get_menu_from_db()
+    db_toppings = get_toppings_from_db()
 
     try:
         conn = get_db_connection()
@@ -637,16 +641,31 @@ def render_kitchen_orders():
                         item_summary_text = []
                         
                         for item in items:
-                            item_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
+                            # 1. พยายามดึงชื่อภาษาไทยก่อน (เช่น item['name_th'] หรือ item['name'])
+                            raw_name = item.get('name_th') or item.get('name') or item.get('display_name', '')
+                            
+                            # 2. ถ้าฝั่งลูกค้าส่ง ID เมนูมาด้วย ให้แปลง ID เป็นชื่อไทย
+                            item_id = item.get('item_id') or item.get('id')
+                            thai_name = None
+                            
+                            # หาชื่อไทยจาก Master Menu
+                            if raw_name in db_menu:
+                                thai_name = raw_name
+                            elif item_id and item_id in db_menu:
+                                thai_name = item_id
+                            else:
+                                thai_name = raw_name
+
                             item_price = item.get('price', 0.0)
                             
-                            topping_val = item.get('topping')
-                            has_topping = (topping_val and topping_val != "ไม่ใส่ท็อปปิ้ง") or ("(+" in item_display)
-                            
-                            if not has_topping:
-                                full_item_text = f"{item_display} (ไม่ใส่ท็อปปิ้ง)"
+                            # แปลงท็อปปิ้งเป็นภาษาไทย
+                            topping_val = item.get('topping_th') or item.get('topping')
+                            has_topping = topping_val and topping_val not in ["ไม่ใส่ท็อปปิ้ง", "No Topping", "None", "", None]
+
+                            if has_topping:
+                                full_item_text = f"{thai_name} (+{topping_val})"
                             else:
-                                full_item_text = item_display
+                                full_item_text = f"{thai_name} (ไม่ใส่ท็อปปิ้ง)"
 
                             st.write(f"- **{full_item_text}** ({item_price} บาท)")
                             item_summary_text.append(full_item_text)
@@ -670,7 +689,6 @@ def render_kitchen_orders():
                             time.sleep(0.5)
                             st.rerun()
 
-                        # ➕ เพิ่มปุ่มยกเลิกออเดอร์
                         if st.button("❌ ยกเลิก", key=f"cancel_order_{order_id}", use_container_width=True):
                             confirm_cancel_order_dialog(order_id, table_no)
 
