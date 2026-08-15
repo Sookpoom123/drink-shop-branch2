@@ -124,11 +124,12 @@ st.markdown(
 )
 
 # ==========================================
-# 🌐 พจนานุกรมแปลภาษา UI (ปรับข้อความรองรับ Takeaway)
+# 🌐 พจนานุกรมแปลภาษา UI (เพิ่มข้อความสำหรับเลือกวันที่)
 # ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
         "header_title": "🧋 สั่งเครื่องดื่ม (กลับบ้าน)",
+        "date_label": "📅 วันที่สั่งออเดอร์:",
         "table_label": "👤 ชื่อลูกค้า / คิวที่:",
         "table_default": "สั่งกลับบ้าน",
         "search_label": "🔍 ค้นหา:",
@@ -150,6 +151,7 @@ LANGUAGES = {
     },
     "🇲🇲 Myanmar": {
         "header_title": "🧋 အဖျော်ယမကာ မှာယူရန် (ပါဆယ်)",
+        "date_label": "📅 ရက်စွဲ:",
         "table_label": "👤 အမည် / ကူပွန်:",
         "table_default": "ပါဆယ်",
         "search_label": "🔍 ရှာရန်:",
@@ -171,6 +173,7 @@ LANGUAGES = {
     },
     "🇨🇳 中文/EN": {
         "header_title": "🧋 Takeaway Order 🥤",
+        "date_label": "📅 Date:",
         "table_label": "👤 Name / Queue:",
         "table_default": "Takeaway",
         "search_label": "🔍 Search:",
@@ -306,10 +309,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-col_top1, col_top2 = st.columns(2)
+# 📌 เพิ่มคอลัมน์เลือกวันที่ สอดรับกับชื่อและช่องค้นหา
+col_top1, col_top2, col_top3 = st.columns([1, 1, 1])
 with col_top1:
-    table_number = st.text_input(t['table_label'], value=t['table_default'], key="table_no_input")
+    order_date = st.date_input(t['date_label'], datetime.now().date(), key="order_date_input")
 with col_top2:
+    table_number = st.text_input(t['table_label'], value=t['table_default'], key="table_no_input")
+with col_top3:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 current_menu, current_toppings = load_db_data()
@@ -324,7 +330,6 @@ else:
         if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
             filtered_items.append((item_name_th, display_name, info))
 
-    # 💡 2 คอลัมน์ ขนาดกำลังดี อ่านง่าย สบายตาบนมือถือ
     NUM_COLS = 2
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
@@ -453,10 +458,15 @@ else:
                     c = conn.cursor()
                     items_json = json.dumps(st.session_state.cart, ensure_ascii=False)
                     
+                    # 📌 นำวันที่ที่เลือกมารวมกับเวลาปัจจุบัน (Timestamp)
+                    current_time = datetime.now().time()
+                    created_timestamp = datetime.combine(order_date, current_time)
+                    
+                    # 📌 INSERT บันทึกลงตาราง orders พร้อมระบุวันที่ (created_at)
                     c.execute("""
-                        INSERT INTO orders (table_number, items_json, total_price, total_cost, status)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (table_number.strip(), items_json, total_price, total_cost, 'pending'))
+                        INSERT INTO orders (table_number, items_json, total_price, total_cost, status, created_at)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                    """, (table_number.strip(), items_json, total_price, total_cost, 'pending', created_timestamp))
                     
                     conn.commit()
                     conn.close()
