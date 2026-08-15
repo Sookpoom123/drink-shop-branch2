@@ -34,7 +34,6 @@ def get_db_pool():
         st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets")
         st.stop()
         
-    # สร้าง Pool เชื่อมต่อล่วงหน้า 1-10 connections ช่วยลดเวลาเปิด-ปิด DB
     return pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=db_url)
 
 def get_db_connection():
@@ -113,7 +112,7 @@ TRANSLATION_MAP = {
     "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
     "တိုင်ဝမ် နို့လက်ဖက်ရည်ဖျော်ရည်": "ชานมไต้หวันปั่น", "ထိုင်း နို့လက်ဖက်ရည်ဖျော်ရည်": "ชาไทยนมปั่น",
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
-    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု့တစလัด",
+    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟရု့တစလัด",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
     "သကြားညိုဂျယ်လီ": "บุกဘရာတ်စူဂါ", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
 }
@@ -657,7 +656,6 @@ def delete_expense_by_id(record_id):
         release_db_connection(conn)
     st.cache_data.clear()
 
-# 📌 ปรับปรุง: รองรับวันที่ created_at จากออเดอร์เดิม (ถ้าไม่มีใช้ date.today())
 def complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, items_count, o_total_price, o_total_cost, created_at=None):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -669,7 +667,6 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
         total_cost_f = float(o_total_cost) if o_total_cost is not None else 0.0
         total_profit = total_price_f - total_cost_f
         
-        # 📌 จัดการดึงเฉพาะวันที่ YYYY-MM-DD จาก created_at
         if created_at:
             if isinstance(created_at, (datetime, date)):
                 sale_date_str = str(created_at.date())
@@ -799,7 +796,6 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh ปรับระยะเวลาเป็น 10s เพื่อลดภาระเครื่อง ---
 @st.fragment(run_every="10s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
@@ -808,7 +804,6 @@ def render_kitchen_orders():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
-        # 📌 ดึง created_at เพิ่มเติมจากฐานข้อมูล
         cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
         pending_orders = cur.fetchall()
         cur.close()
@@ -859,7 +854,6 @@ def render_kitchen_orders():
                         st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
 
                     with col_o2:
-                        # 📌 ส่ง created_at กำกับไปด้วยเมื่อทำเสร็จแล้ว
                         if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
                             if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost, created_at=created_at):
                                 st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
@@ -871,7 +865,6 @@ def render_kitchen_orders():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-# --- เรียกใช้งานระบบฐานข้อมูล ---
 init_db()
 
 # ==========================================
@@ -1028,7 +1021,7 @@ else:
             st.session_state.clear()
             st.rerun()
 
-    # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
+    # --- ส่วนที่ 1: รายการออเดอร์เด้งเข้าครัว ---
     render_kitchen_orders()
 
     # --- ส่วนที่ 2: ตารางราคาเมนู ---
@@ -1116,7 +1109,7 @@ else:
     st.divider()
 
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    selected_date = st.date_input("📅 ดูประวัติและสรุปทางการเงินของวันที่", value=date.today())
+    selected_date = st.date_input("📅 ดูประวัติและสรุปทางการเงินของวันที่", value=date.today(), key="global_selected_date")
 
     df_day_sales = get_sales_by_date(str(selected_date))
     df_day_exp = get_expenses_by_date(str(selected_date))
@@ -1189,12 +1182,14 @@ else:
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📈 สรุปยอดขายรวม")
 
-    filter_time = st.radio("เลือกช่วงเวลา:", ["วันนี้", f"วันที่เลือก ({selected_date})", "ทั้งหมดสะสม"], horizontal=True)
+    # 📌 แก้ไขจุดนี้: ใช้ข้อความตัวเลือกสถิติที่นิ่ง (Static Label) ป้องกันปัญหาเปลี่ยนตัวเลือกไม่ได้
+    filter_time = st.radio("เลือกช่วงเวลา:", ["วันนี้", "วันที่เลือกจากปฏิทิน", "ทั้งหมดสะสม"], horizontal=True, key="filter_time_radio")
 
     if filter_time == "วันนี้":
         target_df = df_today_sales
-    elif filter_time == f"วันที่เลือก ({selected_date})":
+    elif filter_time == "วันที่เลือกจากปฏิทิน":
         target_df = df_day_sales
+        st.caption(f"📅 กำลังดูข้อมูลของวันที่: **{selected_date}**")
     else:
         target_df = get_all_sales()
 
@@ -1234,7 +1229,6 @@ else:
             ["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "💸 บันทึกรายจ่าย", "👥 สมาชิก"]
         )
 
-        # TAB 1: เพิ่มเมนูใหม่
         with tab_add_menu:
             st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
@@ -1250,7 +1244,6 @@ else:
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
 
-        # TAB 2: ลบเมนู
         with tab_del_menu:
             if st.session_state.role == "admin":
                 if len(current_menu) > 0:
@@ -1262,7 +1255,6 @@ else:
             else:
                 st.error("🔒 สิทธิ์ไม่ถูกต้อง: เฉพาะ Admin เท่านั้นที่สามารถลบเมนูได้")
 
-        # TAB 3: จัดการท็อปปิ้ง
         with tab_topping:
             if st.session_state.role == "admin":
                 st.write("🔄 **รีเซ็ต/ซิงค์ท็อปปิ้งจากป้ายร้าน:**")
@@ -1297,7 +1289,6 @@ else:
             else:
                 st.error("🔒 เฉพาะ Admin เท่านั้นที่จัดการท็อปปิ้งได้")
 
-        # TAB 4: บันทึกรายจ่าย
         with tab_expense:
             st.write("💸 **ลงบันทึกรายจ่ายประจำวัน:**")
             exp_date = st.date_input("วันที่จ่าย", value=date.today(), key="exp_date_input")
@@ -1314,7 +1305,6 @@ else:
                 else:
                     st.warning("กรุณากรอกชื่อรายการรายจ่าย")
 
-        # TAB 5: จัดการสมาชิก
         with tab_users:
             if st.session_state.role == "admin":
                 st.write("🟢 **สถานะผู้ใช้งาน**")
