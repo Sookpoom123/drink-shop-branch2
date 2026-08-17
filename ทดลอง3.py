@@ -18,7 +18,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# ⚡ ระบบ DATABASE CONNECTION POOLING (แก้ปัญหาเว็บหน่วงรุนแรง)
+# ⚡ ระบบ DATABASE CONNECTION POOLING
 # ==========================================
 @st.cache_resource
 def get_db_pool():
@@ -34,7 +34,6 @@ def get_db_pool():
         st.error("❌ ไม่พบการตั้งค่า Database URL ใน Secrets")
         st.stop()
         
-    # สร้าง Pool เชื่อมต่อล่วงหน้า 1-10 connections ช่วยลดเวลาเปิด-ปิด DB
     return pool.ThreadedConnectionPool(minconn=1, maxconn=10, dsn=db_url)
 
 def get_db_connection():
@@ -115,7 +114,13 @@ TRANSLATION_MAP = {
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
     "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု้တสลัด",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
-    "သကြားညိုဂျယ်လီ": "บุกဘရာတ်စူဂါ", "အပိုမပါ": "ไม่ใส่ท็อปปิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
+    "သကြားညိုဂျယ်လီ": "บุกဘရာတ်စူဂါ", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
+}
+
+MONTH_NAMES_TH = {
+    1: "มกราคม", 2: "กุมภาพันธ์", 3: "มีนาคม", 4: "เมษายน",
+    5: "พฤษภาคม", 6: "มิถุนายน", 7: "กรกฎาคม", 8: "สิงหาคม",
+    9: "กันยายน", 10: "ตุลาคม", 11: "พฤศจิกายน", 12: "ธันวาคม"
 }
 
 def translate_to_thai(text):
@@ -357,6 +362,7 @@ def init_db():
         
         c.execute("CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(sale_date)")
+        c.execute("CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date)")
         
         c.execute("SELECT COUNT(*) FROM menu_items")
         if c.fetchone()[0] == 0:
@@ -604,10 +610,20 @@ def get_sales_by_date(selected_date_str):
         release_db_connection(conn)
 
 @st.cache_data(ttl=30)
+def get_sales_by_month(year, month):
+    conn = get_db_connection()
+    try:
+        pattern = f"{year:04d}-{month:02d}-%"
+        df = pd.read_sql_query("SELECT * FROM sales WHERE sale_date LIKE %s ORDER BY sale_date DESC, id DESC", conn, params=(pattern,))
+        return df
+    finally:
+        release_db_connection(conn)
+
+@st.cache_data(ttl=30)
 def get_all_sales():
     conn = get_db_connection()
     try:
-        df = pd.read_sql_query("SELECT * FROM sales", conn)
+        df = pd.read_sql_query("SELECT * FROM sales ORDER BY sale_date DESC, id DESC", conn)
         return df
     finally:
         release_db_connection(conn)
@@ -646,6 +662,25 @@ def get_expenses_by_date(selected_date_str):
     finally:
         release_db_connection(conn)
 
+@st.cache_data(ttl=30)
+def get_expenses_by_month(year, month):
+    conn = get_db_connection()
+    try:
+        pattern = f"{year:04d}-{month:02d}-%"
+        df = pd.read_sql_query("SELECT * FROM expenses WHERE expense_date LIKE %s ORDER BY expense_date DESC, id DESC", conn, params=(pattern,))
+        return df
+    finally:
+        release_db_connection(conn)
+
+@st.cache_data(ttl=30)
+def get_all_expenses():
+    conn = get_db_connection()
+    try:
+        df = pd.read_sql_query("SELECT * FROM expenses ORDER BY expense_date DESC, id DESC", conn)
+        return df
+    finally:
+        release_db_connection(conn)
+
 def delete_expense_by_id(record_id):
     conn = get_db_connection()
     c = conn.cursor()
@@ -657,7 +692,6 @@ def delete_expense_by_id(record_id):
         release_db_connection(conn)
     st.cache_data.clear()
 
-# 📌 ปรับปรุง: ดึงวันที่ขาย YYYY-MM-DD จาก created_at ของออเดอร์ เพื่อให้ลงย้อนหลังถูกต้อง
 def complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, items_count, o_total_price, o_total_cost, created_at=None):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -669,7 +703,6 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
         total_cost_f = float(o_total_cost) if o_total_cost is not None else 0.0
         total_profit = total_price_f - total_cost_f
         
-        # จัดการดึงเฉพาะวันที่ YYYY-MM-DD จาก created_at
         if created_at:
             if isinstance(created_at, (datetime, date)):
                 sale_date_str = str(created_at.date())
@@ -884,7 +917,8 @@ if "role" not in st.session_state:
 if "login_date" not in st.session_state:
     st.session_state.login_date = ""
 
-today_str = str(date.today())
+today = date.today()
+today_str = str(today)
 
 if st.session_state.logged_in and st.session_state.login_date != today_str:
     set_user_offline(st.session_state.username)
@@ -1026,7 +1060,7 @@ else:
             st.session_state.clear()
             st.rerun()
 
-    # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า (Auto-refresh) ---
+    # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า ---
     render_kitchen_orders()
 
     # --- ส่วนที่ 2: ตารางราคาเมนู ---
@@ -1099,7 +1133,7 @@ else:
 
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # --- ส่วนที่ 3: สรุปยอดขายเรียลไทม์ & สรุปทางการเงินตามวันที่เลือก ---
+    # --- ส่วนที่ 3: สรุปยอดขายวันนี้ ---
     df_today_sales = get_sales_by_date(today_str)
     
     today_sales = df_today_sales['total_price'].sum() if not df_today_sales.empty else 0
@@ -1113,89 +1147,179 @@ else:
 
     st.divider()
 
-    # 📌 ✨ ส่วนเลือกวันที่ดูย้อนหลัง ✨
-    st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    st.subheader("📆 เลือกวันที่ต้องการดูสรุปยอดขายและประวัติย้อนหลัง")
-    selected_date = st.date_input("เลือกวันที่:", value=date.today(), key="view_selected_date")
+    # ==========================================
+    # 📌 ✨ ส่วนสรุปทางการเงินตามรายวัน / รายเดือน ✨
+    # ==========================================
+    report_view_type = st.radio(
+        "📌 เลือกโหมดการดูสรุปทางการเงิน:",
+        ["📅 รายวัน (ดูเฉพาะวันที่เลือก)", "🗓️ รายเดือน (เดือนนี้ / เดือนอื่นๆ)"],
+        horizontal=True
+    )
 
-    selected_date_str = str(selected_date)
-    df_day_sales = get_sales_by_date(selected_date_str)
-    df_day_exp = get_expenses_by_date(selected_date_str)
+    if report_view_type.startswith("📅 รายวัน"):
+        st.markdown('<div class="pos-card">', unsafe_allow_html=True)
+        st.subheader("📆 เลือกวันที่ต้องการดูสรุปยอดขายและประวัติย้อนหลัง")
+        selected_date = st.date_input("เลือกวันที่:", value=date.today(), key="view_selected_date")
 
-    total_sales = df_day_sales["total_price"].sum() if not df_day_sales.empty else 0.0
-    total_expenses = df_day_exp["amount"].sum() if not df_day_exp.empty else 0.0
-    net_profit = total_sales - total_expenses
-    total_cups = df_day_sales["qty"].sum() if not df_day_sales.empty else 0
+        selected_date_str = str(selected_date)
+        df_day_sales = get_sales_by_date(selected_date_str)
+        df_day_exp = get_expenses_by_date(selected_date_str)
 
-    cash_total = df_day_sales[df_day_sales["payment_method"] == "💵 เงินสด"]["total_price"].sum() if not df_day_sales.empty else 0.0
-    qr_total = df_day_sales[df_day_sales["payment_method"].str.contains("QR", na=False)]["total_price"].sum() if not df_day_sales.empty else 0.0
+        total_sales = df_day_sales["total_price"].sum() if not df_day_sales.empty else 0.0
+        total_expenses = df_day_exp["amount"].sum() if not df_day_exp.empty else 0.0
+        net_profit = total_sales - total_expenses
+        total_cups = df_day_sales["qty"].sum() if not df_day_sales.empty else 0
 
-    st.markdown(f"### 📊 สรุปทางการเงินวันที่ **{selected_date.strftime('%d/%m/%Y')}**")
+        cash_total = df_day_sales[df_day_sales["payment_method"] == "💵 เงินสด"]["total_price"].sum() if not df_day_sales.empty else 0.0
+        qr_total = df_day_sales[df_day_sales["payment_method"].str.contains("QR", na=False)]["total_price"].sum() if not df_day_sales.empty else 0.0
 
-    m_col1, m_col2, m_col3 = st.columns(3)
-    m_col1.metric("💵 ยอดขายรวม", f"{total_sales:,.0f} บ.")
-    m_col2.metric("💸 รายจ่ายรวม", f"{total_expenses:,.0f} บ.")
-    m_col3.metric("🎉 กำไรคงเหลือสุทธิ", f"{net_profit:,.0f} บ.")
+        st.markdown(f"### 📊 สรุปทางการเงินวันที่ **{selected_date.strftime('%d/%m/%Y')}**")
 
-    st.write(f"🥤 **จำนวนขายได้:** `{total_cups:,} แก้ว` | 💵 เงินสด `{cash_total:,.0f} บ.` | 📱 QR/Scan `{qr_total:,.0f} บ.`")
+        m_col1, m_col2, m_col3 = st.columns(3)
+        m_col1.metric("💵 ยอดขายรวม", f"{total_sales:,.0f} บ.")
+        m_col2.metric("💸 รายจ่ายรวม", f"{total_expenses:,.0f} บ.")
+        m_col3.metric("🎉 กำไรคงเหลือสุทธิ", f"{net_profit:,.0f} บ.")
 
-    st.divider()
-    
-    # --- รายการบันทึกรายจ่ายของวันที่เลือก ---
-    st.subheader(f"💸 รายการบันทึกรายจ่ายประจำวันที่ {selected_date.strftime('%d/%m/%Y')}")
-    if not df_day_exp.empty:
-        for index, row in df_day_exp.iterrows():
-            with st.container():
-                c_exp_info, c_exp_del = st.columns([4, 1])
-                with c_exp_info:
-                    note_str = f" ({row['note']})" if pd.notna(row['note']) and row['note'] else ""
-                    st.markdown(f"**{row['title']}**{note_str}")
-                    st.caption(f"จำนวนเงิน: **{row['amount']:,.0f} บ.** | 👤 ผู้บันทึก: **{row['recorded_by']}**")
-                with c_exp_del:
-                    if st.button("❌", key=f"btn_del_exp_{row['id']}"):
-                        confirm_delete_expense_dialog(row['id'], row['title'], row['amount'])
-            st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
-    else:
-        st.info(f"ยังไม่มีรายการบันทึกรายจ่ายในวันที่ {selected_date.strftime('%d/%m/%Y')}")
+        st.write(f"🥤 **จำนวนขายได้:** `{total_cups:,} แก้ว` | 💵 เงินสด `{cash_total:,.0f} บ.` | 📱 QR/Scan `{qr_total:,.0f} บ.`")
 
-    st.divider()
-
-    # --- รายการขายของวันที่เลือก ---
-    st.subheader(f"📋 รายละเอียดรายการขายประจำวันที่ {selected_date.strftime('%d/%m/%Y')}")
-    if not df_day_sales.empty:
-        for index, row in df_day_sales.iterrows():
-            with st.container():
-                c_info, c_del = st.columns([4, 1])
-                with c_info:
-                    seller = row['seller_name'] if pd.notna(row['seller_name']) and row['seller_name'] else "ไม่ระบุ"
-                    st.markdown(f"**{row['item_name']}** ({row['qty']} แก้ว)")
-                    st.caption(f"ยอดขาย: {row['total_price']:,.0f} บ. | {row['payment_method']} | 👤 ผู้บันทึก: **{seller}**")
-                with c_del:
-                    if st.button("❌", key=f"btn_del_row_{row['id']}"):
-                        confirm_delete_dialog(row['id'], row['item_name'], row['qty'])
+        st.divider()
+        
+        # --- รายการบันทึกรายจ่ายประจำวัน ---
+        st.subheader(f"💸 รายการบันทึกรายจ่ายประจำวันที่ {selected_date.strftime('%d/%m/%Y')}")
+        if not df_day_exp.empty:
+            for index, row in df_day_exp.iterrows():
+                with st.container():
+                    c_exp_info, c_exp_del = st.columns([4, 1])
+                    with c_exp_info:
+                        note_str = f" ({row['note']})" if pd.notna(row['note']) and row['note'] else ""
+                        st.markdown(f"**{row['title']}**{note_str}")
+                        st.caption(f"จำนวนเงิน: **{row['amount']:,.0f} บ.** | 👤 ผู้บันทึก: **{row['recorded_by']}**")
+                    with c_exp_del:
+                        if st.button("❌", key=f"btn_del_exp_{row['id']}"):
+                            confirm_delete_expense_dialog(row['id'], row['title'], row['amount'])
                 st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
+        else:
+            st.info(f"ยังไม่มีรายการบันทึกรายจ่ายในวันที่ {selected_date.strftime('%d/%m/%Y')}")
 
-        csv_data = df_day_sales.to_csv(index=False).encode('utf-8-sig')
-        st.download_button(
-            label=f"📥 ดาวน์โหลดประวัติขายเฉพาะวันที่ {selected_date.strftime('%d/%m/%Y')} (.CSV)",
-            data=csv_data,
-            file_name=f"sales_report_{selected_date_str}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
+        st.divider()
+
+        # --- รายการขายประจำวัน ---
+        st.subheader(f"📋 รายละเอียดรายการขายประจำวันที่ {selected_date.strftime('%d/%m/%Y')}")
+        if not df_day_sales.empty:
+            for index, row in df_day_sales.iterrows():
+                with st.container():
+                    c_info, c_del = st.columns([4, 1])
+                    with c_info:
+                        seller = row['seller_name'] if pd.notna(row['seller_name']) and row['seller_name'] else "ไม่ระบุ"
+                        st.markdown(f"**{row['item_name']}** ({row['qty']} แก้ว)")
+                        st.caption(f"ยอดขาย: {row['total_price']:,.0f} บ. | {row['payment_method']} | 👤 ผู้บันทึก: **{seller}**")
+                    with c_del:
+                        if st.button("❌", key=f"btn_del_row_{row['id']}"):
+                            confirm_delete_dialog(row['id'], row['item_name'], row['qty'])
+                    st.markdown("<hr style='margin: 5px 0; border-color: #EADFD8;'>", unsafe_allow_html=True)
+
+            csv_data = df_day_sales.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label=f"📥 ดาวน์โหลดประวัติขายเฉพาะวันที่ {selected_date.strftime('%d/%m/%Y')} (.CSV)",
+                data=csv_data,
+                file_name=f"sales_report_{selected_date_str}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info(f"ยังไม่มีรายการขายในวันที่ {selected_date.strftime('%d/%m/%Y')}")
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
     else:
-        st.info(f"ยังไม่มีรายการขายในวันที่ {selected_date.strftime('%d/%m/%Y')}")
+        # 🗓️ โหมดดูสรุปรายเดือน (เดือนนี้/เดือนต่อๆ ไป/ย้อนหลัง)
+        st.markdown('<div class="pos-card">', unsafe_allow_html=True)
+        st.subheader("🗓️ สรุปทางการเงินรายเดือน (เดือนนี้ / เดือนต่อๆ ไป และดูย้อนหลัง)")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            selected_year = st.selectbox(
+                "เลือกปี (พ.ศ. / ค.ศ.):",
+                options=list(range(today.year - 3, today.year + 5)),
+                index=3,
+                key="month_view_year"
+            )
+        with col_m2:
+            selected_month = st.selectbox(
+                "เลือกเดือน:",
+                options=list(range(1, 13)),
+                format_func=lambda x: f"{x:02d} - {MONTH_NAMES_TH[x]}",
+                index=today.month - 1,
+                key="month_view_month"
+            )
+
+        df_month_sales = get_sales_by_month(selected_year, selected_month)
+        df_month_exp = get_expenses_by_month(selected_year, selected_month)
+
+        m_total_sales = df_month_sales["total_price"].sum() if not df_month_sales.empty else 0.0
+        m_total_expenses = df_month_exp["amount"].sum() if not df_month_exp.empty else 0.0
+        m_net_profit = m_total_sales - m_total_expenses
+        m_total_cups = df_month_sales["qty"].sum() if not df_month_sales.empty else 0
+
+        month_label = f"{MONTH_NAMES_TH[selected_month]} {selected_year}"
+        st.markdown(f"### 📈 สรุปทางการเงินประจำเดือน **{month_label}**")
+
+        c_m1, c_m2, c_m3 = st.columns(3)
+        c_m1.metric("💵 ยอดขายรวมทั้งเดือน", f"{m_total_sales:,.0f} บ.")
+        c_m2.metric("💸 รายจ่ายรวมทั้งเดือน", f"{m_total_expenses:,.0f} บ.")
+        c_m3.metric("🎉 กำไรสุทธิคงเหลือ", f"{m_net_profit:,.0f} บ.")
+
+        st.write(f"🥤 **จำนวนขายได้รวมทั้งเดือน:** `{m_total_cups:,} แก้ว` | **ออเดอร์ทั้งหมด:** `{len(df_month_sales):,} รายการ`")
+
+        st.divider()
+
+        # --- ตารางเปรียบเทียบรายวันในเดือนนั้น ---
+        st.subheader(f"📊 สรุปยอดขายและรายจ่ายแยกรายวันประจำเดือน {month_label}")
+        if not df_month_sales.empty or not df_month_exp.empty:
+            sales_daily = df_month_sales.groupby("sale_date").agg(
+                ยอดขาย=('total_price', 'sum'),
+                แก้ว=('qty', 'sum')
+            ).reset_index().rename(columns={"sale_date": "วันที่"}) if not df_month_sales.empty else pd.DataFrame(columns=["วันที่", "ยอดขาย", "แก้ว"])
+
+            exp_daily = df_month_exp.groupby("expense_date").agg(
+                รายจ่าย=('amount', 'sum')
+            ).reset_index().rename(columns={"expense_date": "วันที่"}) if not df_month_exp.empty else pd.DataFrame(columns=["วันที่", "รายจ่าย"])
+
+            daily_summary = pd.merge(sales_daily, exp_daily, on="วันที่", how="outer").fillna(0)
+            daily_summary["กำไรสุทธิ"] = daily_summary["ยอดขาย"] - daily_summary["รายจ่าย"]
+            daily_summary = daily_summary.sort_values(by="วันที่", ascending=False).reset_index(drop=True)
+
+            st.dataframe(
+                daily_summary.style.format({
+                    "ยอดขาย": "{:,.0f} บ.",
+                    "รายจ่าย": "{:,.0f} บ.",
+                    "กำไรสุทธิ": "{:,.0f} บ.",
+                    "แก้ว": "{:,.0f}"
+                }),
+                use_container_width=True
+            )
+
+            csv_month_data = df_month_sales.to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label=f"📥 ดาวน์โหลดรายงานยอดขายประจำเดือน {month_label} (.CSV)",
+                data=csv_month_data,
+                file_name=f"sales_monthly_{selected_year}_{selected_month:02d}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
+        else:
+            st.info(f"ไม่มีข้อมูลการขายหรือรายจ่ายในเดือน {month_label}")
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
     # --- ส่วนที่ 4: สรุปยอดขายรวมและอันดับขายดี ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
     st.subheader("📈 สรุปยอดขายและอันดับขายดี")
 
-    filter_time = st.radio("เลือกช่วงเวลา:", [f"วันที่เลือก ({selected_date.strftime('%d/%m/%Y')})", "ทั้งหมดสะสม"], horizontal=True)
+    filter_time = st.radio("เลือกช่วงเวลาในการดูอันดับขายดี:", ["เดือนที่เลือก", "ทั้งหมดสะสม"], horizontal=True)
 
-    if filter_time.startswith("วันที่เลือก"):
-        target_df = df_day_sales
+    if filter_time == "เดือนที่เลือก":
+        target_df = get_sales_by_month(selected_year, selected_month) if 'selected_year' in locals() else df_today_sales
     else:
         target_df = get_all_sales()
 
@@ -1204,8 +1328,8 @@ else:
         total_cups_summary = target_df["qty"].sum()
 
         col_sum1, col_sum2 = st.columns(2)
-        col_sum1.metric("ยอดขายรวมทั้งหมด", f"{total_money_summary:,.0f} บาท")
-        col_sum2.metric("จำนวนขายรวมทั้งหมด", f"{total_cups_summary:,} แก้ว")
+        col_sum1.metric("ยอดขายรวมตามช่วงเวลา", f"{total_money_summary:,.0f} บาท")
+        col_sum2.metric("จำนวนขายรวมตามช่วงเวลา", f"{total_cups_summary:,} แก้ว")
 
         st.divider()
 
