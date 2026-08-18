@@ -85,6 +85,13 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
+    /* ปรับแต่งรูปภาพสินค้าให้มนสวยงาม */
+    div[data-testid="stImage"] img {
+        border-radius: 8px !important;
+        object-fit: cover !important;
+        max-height: 180px !important;
+    }
+
     .card-divider {
         border-top: 1px dashed #D3C4B8;
         margin: 4px 0;
@@ -253,7 +260,7 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB ---
+# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB (เพิ่มการดึง image_url) ---
 @st.cache_data(ttl=2)
 def load_db_data():
     menu_dict = {}
@@ -264,9 +271,16 @@ def load_db_data():
         c = conn.cursor()
         
         try:
-            c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
+            # 📌 ดึง image_url มาด้วย
+            c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
             menu_rows = c.fetchall()
-            menu_dict = {r[0]: {"cost": float(r[1]), "price": float(r[2])} for r in menu_rows}
+            menu_dict = {
+                r[0]: {
+                    "cost": float(r[1]), 
+                    "price": float(r[2]), 
+                    "image_url": r[3] if len(r) > 3 and r[3] else None
+                } for r in menu_rows
+            }
         except Exception as e:
             st.error(f"❌ Error ดึงข้อมูลเมนู: {e}")
             
@@ -309,7 +323,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 📌 เพิ่มคอลัมน์เลือกวันที่ สอดรับกับชื่อและช่องค้นหา
+# 📌 คอลัมน์เลือกวันที่ สอดรับกับชื่อและช่องค้นหา
 col_top1, col_top2, col_top3 = st.columns([1, 1, 1])
 with col_top1:
     order_date = st.date_input(t['date_label'], datetime.now().date(), key="order_date_input")
@@ -338,12 +352,17 @@ else:
                 item_name_th, display_name, info = filtered_items[i + j]
                 price = info["price"]
                 cost = info["cost"]
+                image_url = info.get("image_url")  # 📌 ดึง image_url
 
                 counter_key = f"counter_{item_name_th}"
                 if counter_key not in st.session_state:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
+                    # 📌 แสดงรูปภาพสินค้า (แสดงเฉพาะรายการที่มีรูป)
+                    if image_url:
+                        st.image(image_url, use_container_width=True)
+
                     st.markdown(
                         f"""
                         <div class="menu-card">
