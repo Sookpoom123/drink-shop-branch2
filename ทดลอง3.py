@@ -112,7 +112,7 @@ TRANSLATION_MAP = {
     "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
     "တိုင်ဝမ် နို့လက်ဖက်ရည်ဖျော်ရည်": "ชานมไต้หวันปั่น", "ထိုင်း နို့လက်ဖက်ရည်ဖျော်ရည်": "ชาไทยนมปั่น",
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
-    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု้တสลัด",
+    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု้တสလัด",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
     "သကြားညိုဂျယ်လီ": "บุกဘရာတ်စူဂါ", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
 }
@@ -339,9 +339,13 @@ def init_db():
             CREATE TABLE IF NOT EXISTS menu_items (
                 name TEXT PRIMARY KEY,
                 cost REAL,
-                price REAL
+                price REAL,
+                image_url TEXT
             )
         ''')
+        # เพิ่มคอลัมน์ image_url หากมีตารางเดิมอยู่แล้ว
+        c.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_url TEXT;")
+
         c.execute('''
             CREATE TABLE IF NOT EXISTS toppings (
                 name TEXT PRIMARY KEY,
@@ -367,8 +371,8 @@ def init_db():
         c.execute("SELECT COUNT(*) FROM menu_items")
         if c.fetchone()[0] == 0:
             for name, info in DEFAULT_MENU.items():
-                c.execute("INSERT INTO menu_items (name, cost, price) VALUES (%s, %s, %s) ON CONFLICT (name) DO NOTHING",
-                            (name, info['cost'], info['price']))
+                c.execute("INSERT INTO menu_items (name, cost, price, image_url) VALUES (%s, %s, %s, %s) ON CONFLICT (name) DO NOTHING",
+                            (name, info['cost'], info['price'], ""))
 
         c.execute("SELECT COUNT(*) FROM toppings")
         if c.fetchone()[0] == 0:
@@ -435,11 +439,15 @@ def get_menu_from_db():
     conn = get_db_connection()
     c = conn.cursor()
     try:
-        c.execute("SELECT name, cost, price FROM menu_items ORDER BY name ASC")
+        c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
         rows = c.fetchall()
         menu_dict = {}
         for r in rows:
-            menu_dict[r[0]] = {"cost": float(r[1]) if r[1] is not None else 0.0, "price": float(r[2])}
+            menu_dict[r[0]] = {
+                "cost": float(r[1]) if r[1] is not None else 0.0, 
+                "price": float(r[2]),
+                "image_url": r[3] if len(r) > 3 and r[3] else ""
+            }
         return menu_dict
     finally:
         c.close()
@@ -460,15 +468,27 @@ def get_toppings_from_db():
         c.close()
         release_db_connection(conn)
 
-def save_menu_item_db(name, price, cost=0.0):
+def save_menu_item_db(name, price, cost=0.0, image_url=""):
     conn = get_db_connection()
     c = conn.cursor()
     try:
-        c.execute("""
-            INSERT INTO menu_items (name, cost, price) 
-            VALUES (%s, %s, %s)
-            ON CONFLICT (name) DO UPDATE SET price = EXCLUDED.price
-        """, (name, cost, price))
+        if image_url == "KEEP_OLD":
+            c.execute("""
+                INSERT INTO menu_items (name, cost, price, image_url) 
+                VALUES (%s, %s, %s, '')
+                ON CONFLICT (name) DO UPDATE SET 
+                    cost = EXCLUDED.cost,
+                    price = EXCLUDED.price
+            """, (name, cost, price))
+        else:
+            c.execute("""
+                INSERT INTO menu_items (name, cost, price, image_url) 
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (name) DO UPDATE SET 
+                    cost = EXCLUDED.cost,
+                    price = EXCLUDED.price,
+                    image_url = EXCLUDED.image_url
+            """, (name, cost, price, image_url))
         conn.commit()
     finally:
         c.close()
@@ -730,6 +750,37 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
 # ==========================================
 # 🔔 POP-UP DIALOGS
 # ==========================================
+@st.dialog("🖼️ จัดการรูปภาพเมนู")
+def edit_menu_image_dialog(menu_name, current_img_url):
+    st.write(f"แก้ไขรูปภาพสำหรับเมนู: **{menu_name}**")
+    
+    if current_img_url:
+        st.write("🖼️ รูปภาพปัจจุบัน:")
+        st.image(current_img_url, width=150)
+    else:
+        st.info("ยังไม่มีรูปภาพสำหรับเมนูนี้")
+        
+    uploaded_file = st.file_uploader("เลือกรูปภาพใหม่ (PNG, JPG)", type=["png", "jpg", "jpeg"], key=f"dialog_img_{menu_name}")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("💾 บันทึกรูปภาพ", use_container_width=True, key="btn_save_m_img"):
+            if uploaded_file is not None:
+                img_bytes = uploaded_file.read()
+                base64_str = f"data:image/png;base64,{base64.b64encode(img_bytes).decode('utf-8')}"
+                
+                # ดึงราคาปัจจุบันมาคงเดิม
+                m_info = current_menu.get(menu_name, {"price": 0.0, "cost": 0.0})
+                save_menu_item_db(menu_name, m_info["price"], cost=m_info["cost"], image_url=base64_str)
+                st.success("อัปเดตรูปภาพเรียบร้อย!")
+                time.sleep(0.5)
+                st.rerun()
+            else:
+                st.warning("กรุณาเลือกไฟล์รูปภาพก่อน")
+    with col2:
+        if st.button("❌ ปิด", use_container_width=True, key="btn_close_m_img"):
+            st.rerun()
+
 @st.dialog("👤 ตั้งค่ารูปโปรไฟล์")
 def profile_settings_dialog():
     st.write(f"ผู้ใช้งาน: **{st.session_state.username}**")
@@ -1063,12 +1114,12 @@ else:
     # --- ส่วนที่ 1: 🔔 รายการออเดอร์เด้งเข้าครัวจากฝั่งลูกค้า ---
     render_kitchen_orders()
 
-    # --- ส่วนที่ 2: ตารางราคาเมนู ---
+    # --- ส่วนที่ 2: ตารางราคาและรูปภาพเมนู ---
     st.markdown('<div class="pos-card">', unsafe_allow_html=True)
-    st.subheader("📋 ตารางราคาเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
+    st.subheader("📋 ตารางราคาและรูปภาพเมนู (เชื่อมหน้าร้าน/ลูกค้า)")
 
     if st.session_state.role == "admin":
-        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ราคาขาย'** แล้วกดบันทึกได้เลย")
+        st.caption("💡 **สำหรับ Admin:** คุณสามารถแก้ไขช่อง **'ราคาปกติ'** แล้วกดบันทึก หรือกดปุ่ม **🖼️ จัดการรูป** เพื่ออัปเดตรูปภาพได้เลย")
     else:
         st.caption("ℹ️ ตารางดูราคาหน้าร้าน")
 
@@ -1080,12 +1131,13 @@ else:
             if search_top_table.lower() in item.lower():
                 top_menu_list.append({
                     "เมนู": item,
-                    "ราคาปกติ": float(info['price'])
+                    "ราคาปกติ": float(info['price']),
+                    "มีรูปภาพ": "✅ มีรูปแล้ว" if info.get("image_url") else "❌ ยังไม่มีรูป"
                 })
         
         df_menu_view = pd.DataFrame(top_menu_list)
 
-        disabled_cols = ["เมนู"]
+        disabled_cols = ["เมนู", "มีรูปภาพ"]
         if st.session_state.role != "admin":
             disabled_cols = True
 
@@ -1102,26 +1154,35 @@ else:
         )
 
         if st.session_state.role == "admin":
-            if st.button("💾 บันทึกการแก้ไขราคาในตาราง", use_container_width=True, key="btn_save_inline_table"):
-                updated_count = 0
-                for _, row in edited_df.iterrows():
-                    m_name = row["เมนู"]
-                    new_p = float(row["ราคาปกติ"])
+            col_save_tbl, col_manage_img = st.columns(2)
+            with col_save_tbl:
+                if st.button("💾 บันทึกการแก้ไขราคาในตาราง", use_container_width=True, key="btn_save_inline_table"):
+                    updated_count = 0
+                    for _, row in edited_df.iterrows():
+                        m_name = row["เมนู"]
+                        new_p = float(row["ราคาปกติ"])
+                        
+                        old_c = current_menu[m_name]["cost"]
+                        old_p = current_menu[m_name]["price"]
+                        old_img = current_menu[m_name].get("image_url", "")
+                        
+                        if new_p != old_p:
+                            save_menu_item_db(m_name, new_p, cost=old_c, image_url=old_img)
+                            updated_count += 1
                     
-                    old_c = current_menu[m_name]["cost"]
-                    old_p = current_menu[m_name]["price"]
-                    
-                    if new_p != old_p:
-                        save_menu_item_db(m_name, new_p, cost=old_c)
-                        updated_count += 1
-                
-                if updated_count > 0:
-                    st.cache_data.clear()
-                    st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
-                    time.sleep(0.5)
-                    st.rerun()
-                else:
-                    st.info("ไม่มีรายการที่เปลี่ยนแปลง")
+                    if updated_count > 0:
+                        st.cache_data.clear()
+                        st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
+                        time.sleep(0.5)
+                        st.rerun()
+                    else:
+                        st.info("ไม่มีรายการที่เปลี่ยนแปลง")
+
+            with col_manage_img:
+                selected_menu_to_img = st.selectbox("เลือกเมนูเพื่อจัดการรูปภาพ:", list(current_menu.keys()), key="select_m_img_popup")
+                if st.button("🖼️ จัดการรูปภาพเมนูนี้", use_container_width=True, key="btn_open_m_img_dialog"):
+                    curr_img = current_menu[selected_menu_to_img].get("image_url", "")
+                    edit_menu_image_dialog(selected_menu_to_img, curr_img)
 
     st.write("---")
     st.subheader("🧋 รายการท็อปปิ้ง (Topping)")
@@ -1359,15 +1420,21 @@ else:
             ["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "💸 บันทึกรายจ่าย", "👥 สมาชิก"]
         )
 
-        # TAB 1: เพิ่มเมนูใหม่
+        # TAB 1: เพิ่มเมนูใหม่ (พร้อมอัปโหลดรูปภาพ)
         with tab_add_menu:
             st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
             new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=24, key="m_add_price")
+            new_img_file = st.file_uploader("🖼️ เลือกรูปภาพเมนู (PNG, JPG)", type=["png", "jpg", "jpeg"], key="m_add_img")
             
             if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
                 if new_name.strip() != "":
-                    save_menu_item_db(new_name.strip(), float(new_price))
+                    img_base64_str = ""
+                    if new_img_file is not None:
+                        img_bytes = new_img_file.read()
+                        img_base64_str = f"data:image/png;base64,{base64.b64encode(img_bytes).decode('utf-8')}"
+
+                    save_menu_item_db(new_name.strip(), float(new_price), image_url=img_base64_str)
                     st.cache_data.clear()
                     st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
                     time.sleep(0.5)
