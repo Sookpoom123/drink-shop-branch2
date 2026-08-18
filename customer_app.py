@@ -28,7 +28,7 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (ล็อกไม่ให้จอล้นซ้ายขวา 100%) ---
+# --- CSS ตกแต่ง ---
 st.markdown(
     """
     <style>
@@ -85,11 +85,12 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
-    /* ปรับแต่งรูปภาพสินค้าให้มนสวยงาม */
+    /* 📌 แก้ไข CSS ให้แสดงรูปภาพเต็มองค์ประกอบ ไม่โดนตัดขอบ */
     div[data-testid="stImage"] img {
         border-radius: 8px !important;
-        object-fit: cover !important;
-        max-height: 180px !important;
+        object-fit: contain !important;
+        max-height: 250px !important;
+        width: 100% !important;
     }
 
     .card-divider {
@@ -131,7 +132,7 @@ st.markdown(
 )
 
 # ==========================================
-# 🌐 พจนานุกรมแปลภาษา UI (เพิ่มข้อความสำหรับเลือกวันที่)
+# 🌐 พจนานุกรมแปลภาษา UI
 # ==========================================
 LANGUAGES = {
     "🇹🇭 ไทย": {
@@ -260,7 +261,7 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB (เพิ่มการดึง image_url) ---
+# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB ---
 @st.cache_data(ttl=2)
 def load_db_data():
     menu_dict = {}
@@ -271,7 +272,6 @@ def load_db_data():
         c = conn.cursor()
         
         try:
-            # 📌 ดึง image_url มาด้วย
             c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
             menu_rows = c.fetchall()
             menu_dict = {
@@ -323,7 +323,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# 📌 คอลัมน์เลือกวันที่ สอดรับกับชื่อและช่องค้นหา
 col_top1, col_top2, col_top3 = st.columns([1, 1, 1])
 with col_top1:
     order_date = st.date_input(t['date_label'], datetime.now().date(), key="order_date_input")
@@ -352,14 +351,14 @@ else:
                 item_name_th, display_name, info = filtered_items[i + j]
                 price = info["price"]
                 cost = info["cost"]
-                image_url = info.get("image_url")  # 📌 ดึง image_url
+                image_url = info.get("image_url")
 
                 counter_key = f"counter_{item_name_th}"
                 if counter_key not in st.session_state:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 แสดงรูปภาพสินค้า (แสดงเฉพาะรายการที่มีรูป)
+                    # แสดงรูปภาพแบบเต็มสัดส่วน
                     if image_url:
                         st.image(image_url, use_container_width=True)
 
@@ -477,11 +476,9 @@ else:
                     c = conn.cursor()
                     items_json = json.dumps(st.session_state.cart, ensure_ascii=False)
                     
-                    # 📌 นำวันที่ที่เลือกมารวมกับเวลาปัจจุบัน (Timestamp)
                     current_time = datetime.now().time()
                     created_timestamp = datetime.combine(order_date, current_time)
                     
-                    # 📌 INSERT บันทึกลงตาราง orders พร้อมระบุวันที่ (created_at)
                     c.execute("""
                         INSERT INTO orders (table_number, items_json, total_price, total_cost, status, created_at)
                         VALUES (%s, %s, %s, %s, %s, %s)
