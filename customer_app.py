@@ -85,19 +85,25 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
-    /* 📌 จัดวางรูปภาพให้อยู่กึ่งกลางพอดี */
-    div[data-testid="stImage"] {
+    /* 📌 บังคับทับ Style ของ Streamlit เพื่อจัดวางรูปภาพให้อยู่กึ่งกลางพอดี */
+    div[data-testid="stImage"], 
+    div[data-testid="stImage"] > div, 
+    div[data-testid="stImageContainer"] {
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        text-align: center !important;
         width: 100% !important;
     }
 
     div[data-testid="stImage"] img {
         border-radius: 8px !important;
         object-fit: contain !important;
-        max-height: 220px !important;
+        max-height: 200px !important;
         width: auto !important;
+        display: block !important;
         margin: 0 auto !important;
     }
 
@@ -366,9 +372,11 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # แสดงรูปภาพจัดวางไว้ตรงกลาง
+                    # 📌 จัดกึ่งกลางภาพด้วย st.columns([1, 2, 1])
                     if image_url:
-                        st.image(image_url, use_container_width=True)
+                        img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
+                        with img_col2:
+                            st.image(image_url, use_container_width=True)
 
                     st.markdown(
                         f"""
