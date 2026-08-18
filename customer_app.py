@@ -85,12 +85,20 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
-    /* 📌 แก้ไข CSS ให้แสดงรูปภาพเต็มองค์ประกอบ ไม่โดนตัดขอบ */
+    /* 📌 จัดวางรูปภาพให้อยู่กึ่งกลางพอดี */
+    div[data-testid="stImage"] {
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        width: 100% !important;
+    }
+
     div[data-testid="stImage"] img {
         border-radius: 8px !important;
         object-fit: contain !important;
-        max-height: 250px !important;
-        width: 100% !important;
+        max-height: 220px !important;
+        width: auto !important;
+        margin: 0 auto !important;
     }
 
     .card-divider {
@@ -358,7 +366,7 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # แสดงรูปภาพแบบเต็มสัดส่วน
+                    # แสดงรูปภาพจัดวางไว้ตรงกลาง
                     if image_url:
                         st.image(image_url, use_container_width=True)
 
