@@ -30,7 +30,7 @@ def init_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่งเพิ่มเติม ---
+# --- CSS ตกแต่ง ---
 st.markdown(
     """
     <style>
@@ -60,12 +60,48 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* ตกแต่ง Container ของเมนูให้อยู่ในสไตล์คุมโทน */
-    [data-testid="stContainer"] {
-        background-color: #FFFFFF !important;
-        border: 1.5px solid #C8B2A2 !important;
-        border-radius: 10px !important;
-        padding: 8px !important;
+    .menu-card {
+        background-color: #FFFFFF;
+        border: 1.5px solid #C8B2A2;
+        border-radius: 10px;
+        padding: 8px;
+        text-align: center;
+        margin-bottom: 6px;
+    }
+
+    .menu-img-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 110px;
+        margin-bottom: 6px;
+        overflow: hidden;
+    }
+
+    .menu-img {
+        max-height: 110px;
+        width: auto;
+        border-radius: 6px;
+        object-fit: contain;
+    }
+
+    .menu-title {
+        font-weight: 700;
+        font-size: 13px;
+        min-height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.2;
+        color: #2C221E;
+    }
+
+    .menu-price {
+        color: #8C6D58;
+        font-weight: 800;
+        font-size: 14px;
+        margin-top: 2px;
     }
 
     div.stButton > button {
@@ -95,7 +131,6 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
-    /* ซ่อน Label ของท็อปปิ้งเพื่อประหยัดพื้นที่แนวตั้ง */
     .stMultiSelect label {
         display: none !important;
     }
@@ -266,7 +301,7 @@ def load_db_data():
         with conn.cursor() as c:
             c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
             for r in c.fetchall():
-                img = str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip() != "" else None
+                img = str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip() not in ["None", "null", ""] else None
                 menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2]), "image_url": img}
             
             c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
@@ -364,17 +399,21 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 ปรับเปลี่ยนมาใช้ st.container แทน HTML เพื่อแก้ปัญหาโค้ดหลุดแบบ 100%
-                    with st.container(border=True):
-                        # แสดงรูปภาพ (ถ้ามี URL รูป)
-                        if image_url and str(image_url).startswith("http"):
-                            st.image(image_url, use_container_width=True)
-                        else:
-                            # แสดงไอคอน 🧋 แทนหากไม่มีรูป
-                            st.markdown("<h1 style='text-align: center; margin: 0; padding: 10px;'>🧋</h1>", unsafe_allow_html=True)
-                        
-                        st.markdown(f"<div style='text-align: center; font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; color: #2C221E; line-height: 1.2;'>{display_name}</div>", unsafe_allow_html=True)
-                        st.markdown(f"<div style='text-align: center; color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px; margin-bottom: 4px;'>{price:.0f} {t['baht']}</div>", unsafe_allow_html=True)
+                    # 📌 ตรวจสอบและสร้าง HTML สำหรับรูปภาพ
+                    if image_url:
+                        img_html = f'<div class="menu-img-container"><img src="{image_url}" class="menu-img" /></div>'
+                    else:
+                        img_html = '<div class="menu-img-container"><h1 style="margin: 0;">🧋</h1></div>'
+
+                    # 📌 แสดงผลการ์ดแบบปลอดภัย 100% ไม่หลุดเป็นแท็ก
+                    card_html = (
+                        '<div class="menu-card">'
+                        f'{img_html}'
+                        f'<div class="menu-title">{display_name}</div>'
+                        f'<div class="menu-price">{price:.0f} {t["baht"]}</div>'
+                        '</div>'
+                    )
+                    st.markdown(card_html, unsafe_allow_html=True)
 
                     multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
