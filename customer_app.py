@@ -30,7 +30,7 @@ def init_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง ---
+# --- CSS ตกแต่ง (ปรับปรุงสำหรับแสดงผล 3 คอลัมน์บนแท็บเล็ต) ---
 st.markdown(
     """
     <style>
@@ -60,22 +60,22 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* 📌 บังคับรูปให้อยู่ตรงกลาง 100% */
+    /* 📌 ปรับขนาดรูปภาพให้พอดีกับ 3 คอลัมน์ */
     .menu-img-container {
         display: flex;
         justify-content: center;
         align-items: center;
         width: 100%;
-        margin-bottom: 8px;
+        height: 110px;
+        margin-bottom: 6px;
+        overflow: hidden;
     }
 
     .menu-img {
-        max-height: 160px;
+        max-height: 110px;
         width: auto;
-        border-radius: 8px;
+        border-radius: 6px;
         object-fit: contain;
-        display: block;
-        margin: 0 auto;
     }
 
     div.stButton > button {
@@ -83,11 +83,11 @@ st.markdown(
         color: #FFFFFF !important;
         border-radius: 6px !important;
         font-weight: 600 !important;
-        font-size: 12px !important;
+        font-size: 13px !important;
         padding: 2px 0px !important;
         border: none !important;
         width: 100% !important;
-        min-height: 32px !important;
+        min-height: 34px !important;
     }
 
     div.stButton > button:hover {
@@ -103,6 +103,11 @@ st.markdown(
         margin-top: 8px !important;
         width: 100% !important;
         box-sizing: border-box !important;
+    }
+
+    /* ซ่อน Label ของท็อปปิ้งเพื่อประหยัดพื้นที่แนวตั้ง */
+    .stMultiSelect label {
+        display: none !important;
     }
     </style>
     """, 
@@ -124,7 +129,7 @@ LANGUAGES = {
         "price": "ราคา",
         "baht": "บ.",
         "topping_label": "ท็อปปิ้ง:",
-        "no_topping": "เลือก...",
+        "no_topping": "เลือกท็อปปิ้ง...",
         "btn_add": "➕ สั่ง",
         "cart_title": "รายการที่เลือก",
         "cart_empty": "ยังไม่ได้เลือกรายการ",
@@ -193,7 +198,7 @@ LANGUAGES = {
         "price": "Price",
         "baht": "THB",
         "topping_label": "Topping:",
-        "no_topping": "Select...",
+        "no_topping": "Select topping...",
         "btn_add": "➕ Add",
         "cart_title": "Cart",
         "cart_empty": "Cart Empty",
@@ -207,7 +212,6 @@ LANGUAGES = {
     }
 }
 
-# เก็บตารางแปลเดิมไว้เป็นข้อมูลสำรอง แต่ระบบด้านล่างจะใช้ Google Translate
 MENU_TRANSLATIONS = {
     "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文": "冰红茶 Tea"},
     "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文": "柠檬茶 Lemon Tea"},
@@ -256,7 +260,6 @@ WORD_MAP = {
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _translate_text_cached(text, target):
-    """แปลข้อความ 1 รายการและเก็บ cache 24 ชั่วโมง"""
     if not text or not str(text).strip():
         return str(text or "")
     try:
@@ -266,15 +269,10 @@ def _translate_text_cached(text, target):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _translate_many_cached(texts, target):
-    """
-    แปลหลายรายการพร้อมกัน แล้ว cache ผลลัพธ์
-    ลดเวลาค้างตอนเปลี่ยนภาษา และไม่เรียก API ซ้ำในทุกการ rerun
-    """
     unique_texts = list(dict.fromkeys(str(x) for x in texts if str(x).strip()))
     if not unique_texts:
         return {}
 
-    # ภาษาไทยไม่ต้องส่งออกไปแปล
     if target == "th":
         return {x: x for x in unique_texts}
 
@@ -283,7 +281,6 @@ def _translate_many_cached(texts, target):
     def worker(value):
         return value, _translate_text_cached(value, target)
 
-    # จำกัดจำนวนการเชื่อมต่อพร้อมกัน เพื่อลดโอกาสถูกบริการแปลบล็อก
     with ThreadPoolExecutor(max_workers=min(6, len(unique_texts))) as executor:
         futures = [executor.submit(worker, value) for value in unique_texts]
         for future in as_completed(futures):
@@ -304,7 +301,6 @@ def get_translation_target(lang):
     }.get(lang, "th")
 
 def translate_item(name_th, lang, translated_map=None):
-    """แปลจากแผนที่ที่สร้างครั้งเดียวต่อภาษา เพื่อลดการค้างของหน้าเว็บ"""
     name_th = str(name_th or "")
     if lang == "🇹🇭 ไทย":
         return name_th
@@ -339,7 +335,6 @@ def load_db_data():
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
-# สถานะยืนยันการส่งออเดอร์สำเร็จ
 if "order_success" not in st.session_state:
     st.session_state.order_success = False
 
@@ -353,11 +348,9 @@ selected_lang = st.segmented_control(
 
 t = LANGUAGES[selected_lang]
 
-# แสดงข้อความยืนยันหลังจากบันทึกออเดอร์สำเร็จแล้ว
 if st.session_state.order_success:
     st.success(t["success_backend_msg"], icon="🎉")
     st.toast(t["success_backend_msg"], icon="🎉")
-    # แสดงข้อความเฉพาะรอบการโหลดนี้ เพื่อไม่ให้ขึ้นซ้ำเมื่อผู้ใช้ใช้งานต่อ
     st.session_state.order_success = False
 
 # --- Header ---
@@ -380,9 +373,6 @@ with col_top3:
 
 current_menu, current_toppings = load_db_data()
 
-# ===== แปลข้อมูลครั้งเดียวต่อภาษา แล้วนำผลไปใช้ทั้งหน้า =====
-# ปัญหาเดิม: translate_item ถูกเรียกซ้ำหลายครั้งในลูปเมนู/ค้นหา/ท็อปปิ้ง
-# ทำให้การเปลี่ยนภาษาเกิด network request จำนวนมากและหน้า Streamlit ดูเหมือนค้าง
 target_lang = get_translation_target(selected_lang)
 
 all_texts_to_translate = list(current_menu.keys()) + list(current_toppings.keys())
@@ -408,7 +398,6 @@ topping_options = [
 if not current_menu:
     st.info("⏳ กำลังโหลดรายการเมนู...")
 else:
-    # ใช้คำแปลที่สร้างไว้แล้ว ห้ามเรียก API ซ้ำในลูปนี้
     filtered_items = [
         (name_th, menu_display_map.get(name_th, name_th), info)
         for name_th, info in current_menu.items()
@@ -418,7 +407,8 @@ else:
         )
     ]
 
-    NUM_COLS = 2
+    # 📌 ปรับเปลี่ยนเป็น 3 คอลัมน์ต่อแถวสำหรับหน้าจอแท็บเล็ต
+    NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
         for j in range(NUM_COLS):
@@ -431,22 +421,15 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 ใช้ HTML Tag แสดงรูปภาพโดยตรงเพื่อบังคับจัดกึ่งกลาง 100%
-                    if image_url:
-                        st.markdown(
-                            f"""
-                            <div class="menu-img-container">
-                                <img src="{image_url}" class="menu-img" />
-                            </div>
-                            """, 
-                            unsafe_allow_html=True
-                        )
-
+                    # รวมรูป ชื่อ และราคา อยู่ใน Box เดียวกันเพื่อความเป็นระเบียบ
+                    img_html = f'<div class="menu-img-container"><img src="{image_url}" class="menu-img" /></div>' if image_url else ''
+                    
                     st.markdown(
                         f"""
                         <div style="background-color: #FFFFFF; border: 1.5px solid #C8B2A2; border-radius: 10px; padding: 8px; text-align: center; margin-bottom: 6px;">
-                            <div style="font-weight: 700; font-size: 13px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
-                            <div style="color: #8C6D58; font-weight: 800; font-size: 13px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                            {img_html}
+                            <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
+                            <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                         </div>
                         """, 
                         unsafe_allow_html=True
@@ -457,7 +440,8 @@ else:
                         t['topping_label'], 
                         options=topping_options, 
                         key=multiselect_key,
-                        placeholder=t['no_topping']
+                        placeholder=t['no_topping'],
+                        label_visibility="collapsed"
                     )
                     
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
@@ -476,7 +460,6 @@ else:
                             for tp_name in selected_tp_names
                         )
 
-                        # เก็บ name เป็นภาษาไทยสำหรับหลังบ้าน และ display_name เป็นภาษาที่ลูกค้าเลือก
                         tp_text_th = f" (+{', '.join(selected_tp_names)})" if selected_tp_names else ""
                         tp_text_display = (
                             f" (+{', '.join(selected_tp_display_names)})"
@@ -558,7 +541,6 @@ else:
                         """, (table_number.strip(), items_json, total_price, total_cost, 'pending', created_timestamp))
                         conn.commit()
 
-                    # บันทึกสำเร็จแล้ว จึงล้างตะกร้าและแสดงการยืนยันหลัง rerun
                     st.session_state.cart = []
                     st.session_state.order_success = True
                     st.rerun()
