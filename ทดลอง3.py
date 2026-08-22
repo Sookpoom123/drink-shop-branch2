@@ -343,8 +343,18 @@ def init_db():
                 image_url TEXT
             )
         ''')
-        # เพิ่มคอลัมน์ image_url หากมีตารางเดิมอยู่แล้ว
-        c.execute("ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS image_url TEXT;")
+        # ตรวจสอบคอลัมน์ image_url ก่อนทำ ALTER TABLE
+        # ป้องกันการพยายามล็อกตารางทุกครั้งที่ Streamlit รัน init_db()
+        c.execute("""
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'menu_items'
+              AND column_name = 'image_url'
+            LIMIT 1
+        """)
+        if c.fetchone() is None:
+            c.execute("ALTER TABLE menu_items ADD COLUMN image_url TEXT;")
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS toppings (
