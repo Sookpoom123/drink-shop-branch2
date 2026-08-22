@@ -1,6 +1,7 @@
 import psycopg2
 import streamlit as st
 import json
+import html
 from datetime import datetime
 from deep_translator import GoogleTranslator
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -407,7 +408,6 @@ else:
         )
     ]
 
-    # 📌 ปรับเปลี่ยนเป็น 3 คอลัมน์ต่อแถวสำหรับหน้าจอแท็บเล็ต
     NUM_COLS = 3
     for i in range(0, len(filtered_items), NUM_COLS):
         cols = st.columns(NUM_COLS)
@@ -416,20 +416,26 @@ else:
                 item_name_th, display_name, info = filtered_items[i + j]
                 price, cost, image_url = info["price"], info["cost"], info.get("image_url")
 
+                # 📌 ล้างค่าอักขระพิเศษ ป้องกัน HTML แท็กหลุดออกมาแสดงผล
+                safe_display_name = html.escape(str(display_name))
+
                 counter_key = f"counter_{item_name_th}"
                 if counter_key not in st.session_state:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # รวมรูป ชื่อ และราคา อยู่ใน Box เดียวกันเพื่อความเป็นระเบียบ
                     img_html = f'<div class="menu-img-container"><img src="{image_url}" class="menu-img" /></div>' if image_url else ''
                     
                     st.markdown(
                         f"""
                         <div style="background-color: #FFFFFF; border: 1.5px solid #C8B2A2; border-radius: 10px; padding: 8px; text-align: center; margin-bottom: 6px;">
                             {img_html}
-                            <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
-                            <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                            <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">
+                                {safe_display_name}
+                            </div>
+                            <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">
+                                {price:.0f} {t['baht']}
+                            </div>
                         </div>
                         """, 
                         unsafe_allow_html=True
