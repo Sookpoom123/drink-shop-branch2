@@ -298,7 +298,9 @@ DEFAULT_TOPPINGS = {
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
+@st.cache_resource
 def init_db():
+    """สร้างโครงสร้างฐานข้อมูลเพียงครั้งเดียวต่อ process เพื่อลดการล็อกและความหน่วง"""
     conn = get_db_connection()
     c = conn.cursor()
     try:
@@ -390,6 +392,7 @@ def init_db():
                 c.execute("INSERT INTO toppings (name, price) VALUES (%s, %s) ON CONFLICT (name) DO NOTHING",
                             (name, price))
         conn.commit()
+        return True
     finally:
         c.close()
         release_db_connection(conn)
@@ -411,16 +414,23 @@ def reset_and_sync_toppings():
     st.cache_data.clear()
 
 def update_user_activity(username):
-    if username:
-        conn = get_db_connection()
-        c = conn.cursor()
-        try:
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            c.execute("UPDATE users SET last_active = %s WHERE username = %s", (now_str, username))
-            conn.commit()
-        finally:
-            c.close()
-            release_db_connection(conn)
+    """อัปเดตสถานะออนไลน์แบบ throttled ไม่เขียน DB ทุกครั้งที่ Streamlit rerun"""
+    if not username:
+        return
+    now_ts = time.time()
+    last_ts = st.session_state.get("_last_activity_db_write", 0)
+    if now_ts - last_ts < 60:
+        return
+    conn = get_db_connection()
+    c = conn.cursor()
+    try:
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("UPDATE users SET last_active = %s WHERE username = %s", (now_str, username))
+        conn.commit()
+        st.session_state._last_activity_db_write = now_ts
+    finally:
+        c.close()
+        release_db_connection(conn)
 
 def update_user_profile_img(username, img_bytes):
     encoded_img = base64.b64encode(img_bytes).decode('utf-8')
@@ -429,10 +439,12 @@ def update_user_profile_img(username, img_bytes):
     try:
         c.execute("UPDATE users SET profile_img = %s WHERE username = %s", (encoded_img, username))
         conn.commit()
+        get_user_profile_img.clear()
     finally:
         c.close()
         release_db_connection(conn)
 
+@st.cache_data(ttl=300, show_spinner=False)
 def get_user_profile_img(username):
     conn = get_db_connection()
     c = conn.cursor()
@@ -503,7 +515,7 @@ def save_menu_item_db(name, price, cost=0.0, image_url=""):
     finally:
         c.close()
         release_db_connection(conn)
-    st.cache_data.clear()
+    get_menu_from_db.clear()
 
 def save_topping_db(name, price):
     conn = get_db_connection()
@@ -518,7 +530,7 @@ def save_topping_db(name, price):
     finally:
         c.close()
         release_db_connection(conn)
-    st.cache_data.clear()
+    get_toppings_from_db.clear()
 
 def delete_menu_item_db(name):
     conn = get_db_connection()
@@ -529,7 +541,7 @@ def delete_menu_item_db(name):
     finally:
         c.close()
         release_db_connection(conn)
-    st.cache_data.clear()
+    get_menu_from_db.clear()
 
 def delete_topping_db(name):
     conn = get_db_connection()
@@ -540,7 +552,7 @@ def delete_topping_db(name):
     finally:
         c.close()
         release_db_connection(conn)
-    st.cache_data.clear()
+    get_toppings_from_db.clear()
 
 def add_user(username, password, role='user'):
     conn = get_db_connection()
@@ -667,7 +679,9 @@ def delete_sale_by_id(record_id):
     finally:
         c.close()
         release_db_connection(conn)
-    st.cache_data.clear()
+    get_sales_by_date.clear()
+    get_sales_by_month.clear()
+    get_all_sales.clear()
 
 def add_expense(expense_date, title, amount, note, recorded_by):
     conn = get_db_connection()
@@ -727,6 +741,7 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
     cur = conn.cursor()
     try:
         cur.execute("UPDATE orders SET status = 'completed' WHERE id = %s", (order_id,))
+        get_pending_orders.clear()
         
         combined_item_names = ", ".join(item_summary_text) if isinstance(item_summary_text, list) else str(item_summary_text)
         total_price_f = float(o_total_price) if o_total_price is not None else 0.0
@@ -783,7 +798,6 @@ def edit_menu_image_dialog(menu_name, current_img_url):
                 m_info = current_menu.get(menu_name, {"price": 0.0, "cost": 0.0})
                 save_menu_item_db(menu_name, m_info["price"], cost=m_info["cost"], image_url=base64_str)
                 st.success("อัปเดตรูปภาพเรียบร้อย!")
-                time.sleep(0.5)
                 st.rerun()
             else:
                 st.warning("กรุณาเลือกไฟล์รูปภาพก่อน")
@@ -815,7 +829,6 @@ def profile_settings_dialog():
                 img_bytes = uploaded_file.read()
                 update_user_profile_img(st.session_state.username, img_bytes)
                 st.success("อัปเดตรูปโปรไฟล์เรียบร้อย!")
-                time.sleep(0.5)
                 st.rerun()
             else:
                 st.warning("กรุณาเลือกไฟล์รูปภาพก่อน")
@@ -831,7 +844,6 @@ def confirm_delete_dialog(item_id, item_name, qty):
         if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_sale"):
             delete_sale_by_id(item_id)
             st.success("ลบรายการเรียบร้อย!")
-            time.sleep(0.5)
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_sale"):
@@ -845,7 +857,6 @@ def confirm_delete_expense_dialog(exp_id, title, amount):
         if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_exp"):
             delete_expense_by_id(exp_id)
             st.success("ลบรายการรายจ่ายเรียบร้อย!")
-            time.sleep(0.5)
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_exp"):
@@ -859,7 +870,6 @@ def confirm_delete_menu_dialog(menu_name):
         if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_menu"):
             delete_menu_item_db(menu_name)
             st.success(f"ลบเมนู '{menu_name}' เรียบร้อย!")
-            time.sleep(0.5)
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_menu"):
@@ -873,7 +883,6 @@ def confirm_delete_topping_dialog(topping_name):
         if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_topping"):
             delete_topping_db(topping_name)
             st.success(f"ลบท็อปปิ้ง '{topping_name}' เรียบร้อย!")
-            time.sleep(0.5)
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_topping"):
@@ -887,7 +896,6 @@ def confirm_delete_user_dialog(username):
         if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_user"):
             delete_user(username)
             st.success(f"ลบบัญชี '{username}' สำเร็จ!")
-            time.sleep(0.5)
             st.rerun()
     with col_cancel:
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
@@ -895,17 +903,23 @@ def confirm_delete_user_dialog(username):
 
 # --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh (10s) ---
 @st.fragment(run_every="10s")
+@st.cache_data(ttl=2, show_spinner=False)
+def get_pending_orders():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
+        return cur.fetchall()
+    finally:
+        cur.close()
+        release_db_connection(conn)
+
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
     st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
 
     try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
-        pending_orders = cur.fetchall()
-        cur.close()
-        release_db_connection(conn)
+        pending_orders = get_pending_orders()
 
         if not pending_orders:
             st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
@@ -955,7 +969,6 @@ def render_kitchen_orders():
                         if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
                             if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost, created_at=created_at):
                                 st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
-                                time.sleep(0.5)
                                 st.rerun()
 
     except Exception as e:
@@ -1043,7 +1056,6 @@ if not st.session_state.logged_in:
                 st.query_params["login_date"] = str(date.today())
                 
                 st.success(f"🎉 ต้อนรับคุณ {st.session_state.username}!")
-                time.sleep(0.3)
                 st.rerun()
             else:
                 st.error("❌ ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง")
@@ -1183,7 +1195,6 @@ else:
                     if updated_count > 0:
                         st.cache_data.clear()
                         st.success(f"🎉 อัปเดตราคาเรียบร้อย {updated_count} รายการ!")
-                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.info("ไม่มีรายการที่เปลี่ยนแปลง")
@@ -1447,7 +1458,6 @@ else:
                     save_menu_item_db(new_name.strip(), float(new_price), image_url=img_base64_str)
                     st.cache_data.clear()
                     st.success(f"เพิ่มเมนู '{new_name}' เรียบร้อยแล้ว!")
-                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อเมนู")
@@ -1471,7 +1481,6 @@ else:
                 if st.button("⚡ ซิงค์ท็อปปิ้งจากป้ายร้าน (5บ./10บ.) เข้า Database", use_container_width=True, key="btn_sync_toppings"):
                     reset_and_sync_toppings()
                     st.success("🎉 ซิงค์ท็อปปิ้งเรียบร้อยแล้ว!")
-                    time.sleep(0.5)
                     st.rerun()
 
                 st.divider()
@@ -1483,7 +1492,6 @@ else:
                         save_topping_db(t_name.strip(), float(t_price))
                         st.cache_data.clear()
                         st.success(f"บันทึกท็อปปิ้ง '{t_name}' เรียบร้อย!")
-                        time.sleep(0.5)
                         st.rerun()
                     else:
                         st.warning("กรุณากรอกชื่อท็อปปิ้ง")
@@ -1511,7 +1519,6 @@ else:
                 if exp_title.strip() != "":
                     add_expense(exp_date, exp_title.strip(), float(exp_amount), exp_note.strip(), st.session_state.username)
                     st.success(f"บันทึกรายจ่าย '{exp_title}' จำนวน {exp_amount:,.0f} บาท เรียบร้อย!")
-                    time.sleep(0.5)
                     st.rerun()
                 else:
                     st.warning("กรุณากรอกชื่อรายการรายจ่าย")
