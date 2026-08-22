@@ -112,7 +112,7 @@ TRANSLATION_MAP = {
     "ကိုကိုး ဖျော်ရည်": "โกโก้ปั่น", "အိုဗာတင်း ဖျော်ရည်": "โอวัลตินปั่น", "နို့စိမ်း ဖျော်ရည်": "นมสดปั่น",
     "တိုင်ဝမ် နို့လက်ဖက်ရည်ဖျော်ရည်": "ชานมไต้หวันปั่น", "ထိုင်း နို့လက်ဖက်ရည်ဖျော်ရည်": "ชาไทยนมปั่น",
     "လက်ဖက်ရည်စိမ်းနို့ ဖျော်ရည်": "ชาเขียวนมปั่น", "မက်ချာ နို့စိမ်းဖျော်ရည်": "มัทฉะนมสดปั่น",
-    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ฟรု้တสလัด",
+    "အမဲ ရာဘာလုံး": "ไข่มุกสีดำ", "ရွှေရောင် ရာဘာလုံး": "ไข่มุกสีทอง", "သစ်သီးစုံ": "ဖရု့တစလတ်",
     "နို့ဂျယ်လီ": "บุกนมสด", "ကျောက်ကျောဂျယ်လီ": "บุกเฉาก๊วย", "ပျားရည်ဂျယ်လီ": "บุกน้ำผึ้ง",
     "သကြားညိုဂျယ်လီ": "บุกဘရာတ်စူဂါ", "အပိုမပါ": "ไม่ใส่ท็อปပิ้ง", "ပါဆယ်": "สั่งกลับบ้าน", "ဆိုင်မှာစားမည်": "ทานที่ร้าน"
 }
@@ -790,7 +790,7 @@ def edit_menu_image_dialog(menu_name, current_img_url):
     
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("💾 บันทึกรูปภาพ", use_container_width=True, key="btn_save_m_img"):
+        if st.button("💾 บันทึกรูปภาพ", key="btn_save_m_img"):
             if uploaded_file is not None:
                 img_bytes = uploaded_file.read()
                 base64_str = f"data:image/png;base64,{base64.b64encode(img_bytes).decode('utf-8')}"
@@ -802,7 +802,7 @@ def edit_menu_image_dialog(menu_name, current_img_url):
             else:
                 st.warning("กรุณาเลือกไฟล์รูปภาพก่อน")
     with col2:
-        if st.button("❌ ปิด", use_container_width=True, key="btn_close_m_img"):
+        if st.button("❌ ปิด", key="btn_close_m_img"):
             st.rerun()
 
 @st.dialog("👤 ตั้งค่ารูปโปรไฟล์")
@@ -824,7 +824,7 @@ def profile_settings_dialog():
 
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("💾 บันทึกรูป", use_container_width=True, key="btn_save_profile"):
+        if st.button("💾 บันทึกรูป", key="btn_save_profile"):
             if uploaded_file is not None:
                 img_bytes = uploaded_file.read()
                 update_user_profile_img(st.session_state.username, img_bytes)
@@ -833,7 +833,7 @@ def profile_settings_dialog():
             else:
                 st.warning("กรุณาเลือกไฟล์รูปภาพก่อน")
     with col2:
-        if st.button("❌ ปิด", use_container_width=True, key="btn_close_profile"):
+        if st.button("❌ ปิด", key="btn_close_profile"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบรายการขาย")
@@ -841,12 +841,12 @@ def confirm_delete_dialog(item_id, item_name, qty):
     st.write(f"คุณต้องการลบรายการ **{item_name}** ({qty} แก้ว) ใช่หรือไม่?")
     col_confirm, col_cancel = st.columns(2)
     with col_confirm:
-        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_sale"):
+        if st.button("✅ ยืนยันลบ", key="btn_confirm_del_sale"):
             delete_sale_by_id(item_id)
             st.success("ลบรายการเรียบร้อย!")
             st.rerun()
     with col_cancel:
-        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_sale"):
+        if st.button("❌ ยกเลิก", key="btn_cancel_del_sale"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบรายการรายจ่าย")
@@ -854,12 +854,12 @@ def confirm_delete_expense_dialog(exp_id, title, amount):
     st.write(f"คุณต้องการลบรายจ่าย **{title}** ({amount:,.0f} บาท) ใช่หรือไม่?")
     col_confirm, col_cancel = st.columns(2)
     with col_confirm:
-        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_exp"):
+        if st.button("✅ ยืนยันลบ", key="btn_confirm_del_exp"):
             delete_expense_by_id(exp_id)
             st.success("ลบรายการรายจ่ายเรียบร้อย!")
             st.rerun()
     with col_cancel:
-        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_exp"):
+        if st.button("❌ ยกเลิก", key="btn_cancel_del_exp"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบเมนู")
@@ -867,12 +867,12 @@ def confirm_delete_menu_dialog(menu_name):
     st.write(f"คุณต้องการลบเมนู **{menu_name}** ออกจากระบบใช่หรือไม่?")
     col_confirm, col_cancel = st.columns(2)
     with col_confirm:
-        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_menu"):
+        if st.button("✅ ยืนยันลบ", key="btn_confirm_del_menu"):
             delete_menu_item_db(menu_name)
             st.success(f"ลบเมนู '{menu_name}' เรียบร้อย!")
             st.rerun()
     with col_cancel:
-        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_menu"):
+        if st.button("❌ ยกเลิก", key="btn_cancel_del_menu"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบท็อปปิ้ง")
@@ -880,12 +880,12 @@ def confirm_delete_topping_dialog(topping_name):
     st.write(f"คุณต้องการลบท็อปปิ้ง **{topping_name}** ออกจากระบบใช่หรือไม่?")
     col_confirm, col_cancel = st.columns(2)
     with col_confirm:
-        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_topping"):
+        if st.button("✅ ยืนยันลบ", key="btn_confirm_del_topping"):
             delete_topping_db(topping_name)
             st.success(f"ลบท็อปปิ้ง '{topping_name}' เรียบร้อย!")
             st.rerun()
     with col_cancel:
-        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_topping"):
+        if st.button("❌ ยกเลิก", key="btn_cancel_del_topping"):
             st.rerun()
 
 @st.dialog("⚠️ ยืนยันการลบบัญชีสมาชิก")
@@ -893,12 +893,12 @@ def confirm_delete_user_dialog(username):
     st.write(f"คุณต้องการลบบัญชีผู้ใช้ **{username}** ออกจากระบบใช่หรือไม่?")
     col_confirm, col_cancel = st.columns(2)
     with col_confirm:
-        if st.button("✅ ยืนยันลบ", use_container_width=True, key="btn_confirm_del_user"):
+        if st.button("✅ ยืนยันลบ", key="btn_confirm_del_user"):
             delete_user(username)
             st.success(f"ลบบัญชี '{username}' สำเร็จ!")
             st.rerun()
     with col_cancel:
-        if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
+        if st.button("❌ ยกเลิก", key="btn_cancel_del_user"):
             st.rerun()
 
 # --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh (3s) ---
@@ -1001,7 +1001,7 @@ def render_kitchen_orders():
                         st.write(f"💰 **ราคารวม: {o_total_price} บาท**")
 
                     with col_o2:
-                        if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
+                        if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary"):
                             if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost, created_at=created_at):
                                 st.toast("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย! 🎉")
                                 st.rerun(scope="fragment")
@@ -1077,7 +1077,7 @@ if not st.session_state.logged_in:
         login_pass_input = st.text_input("🔒 รหัสผ่าน", type="password", key="login_pass")
         st.write("")
         
-        if st.button("🚀 เข้าสู่ระบบ", use_container_width=True):
+        if st.button("🚀 เข้าสู่ระบบ"):
             user_data = login_user(login_user_input.strip(), login_pass_input.strip())
             if user_data:
                 st.session_state.logged_in = True
@@ -1114,7 +1114,7 @@ if not st.session_state.logged_in:
                 secret_code_input = st.text_input("🔑 รหัสลับแต่งตั้ง Admin", type="password", key="reg_secret")
 
             st.write("")
-            submit_reg = st.form_submit_button("✨ สมัครสมาชิก", use_container_width=True)
+            submit_reg = st.form_submit_button("✨ สมัครสมาชิก")
 
         if submit_reg:
             username_clean = reg_user_input.strip()
@@ -1200,7 +1200,6 @@ else:
 
         edited_df = st.data_editor(
             df_menu_view,
-            use_container_width=True,
             height=250,
             disabled=disabled_cols,
             column_config={
@@ -1213,7 +1212,7 @@ else:
         if st.session_state.role == "admin":
             col_save_tbl, col_manage_img = st.columns(2)
             with col_save_tbl:
-                if st.button("💾 บันทึกการแก้ไขราคาในตาราง", use_container_width=True, key="btn_save_inline_table"):
+                if st.button("💾 บันทึกการแก้ไขราคาในตาราง", key="btn_save_inline_table"):
                     updated_count = 0
                     for _, row in edited_df.iterrows():
                         m_name = row["เมนู"]
@@ -1236,7 +1235,7 @@ else:
 
             with col_manage_img:
                 selected_menu_to_img = st.selectbox("เลือกเมนูเพื่อจัดการรูปภาพ:", list(current_menu.keys()), key="select_m_img_popup")
-                if st.button("🖼️ จัดการรูปภาพเมนูนี้", use_container_width=True, key="btn_open_m_img_dialog"):
+                if st.button("🖼️ จัดการรูปภาพเมนูนี้", key="btn_open_m_img_dialog"):
                     curr_img = current_menu[selected_menu_to_img].get("image_url", "")
                     edit_menu_image_dialog(selected_menu_to_img, curr_img)
 
@@ -1244,7 +1243,7 @@ else:
     st.subheader("🧋 รายการท็อปปิ้ง (Topping)")
     if current_toppings:
         topping_list = [{"ท็อปปิ้ง": k, "ราคาบวกเพิ่ม (บาท)": f"+{v:.0f} บ."} for k, v in current_toppings.items()]
-        st.dataframe(pd.DataFrame(topping_list), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(topping_list), hide_index=True)
     else:
         st.info("ยังไม่มีข้อมูลท็อปปิ้งในระบบ")
 
@@ -1340,8 +1339,7 @@ else:
                 label=f"📥 ดาวน์โหลดประวัติขายเฉพาะวันที่ {selected_date.strftime('%d/%m/%Y')} (.CSV)",
                 data=csv_data,
                 file_name=f"sales_report_{selected_date_str}.csv",
-                mime="text/csv",
-                use_container_width=True
+                mime="text/csv"
             )
         else:
             st.info(f"ยังไม่มีรายการขายในวันที่ {selected_date.strftime('%d/%m/%Y')}")
@@ -1412,8 +1410,7 @@ else:
                     "รายจ่าย": "{:,.0f} บ.",
                     "กำไรสุทธิ": "{:,.0f} บ.",
                     "แก้ว": "{:,.0f}"
-                }),
-                use_container_width=True
+                })
             )
 
             csv_month_data = df_month_sales.to_csv(index=False).encode('utf-8-sig')
@@ -1421,8 +1418,7 @@ else:
                 label=f"📥 ดาวน์โหลดรายงานยอดขายประจำเดือน {month_label} (.CSV)",
                 data=csv_month_data,
                 file_name=f"sales_monthly_{selected_year}_{selected_month:02d}.csv",
-                mime="text/csv",
-                use_container_width=True
+                mime="text/csv"
             )
         else:
             st.info(f"ไม่มีข้อมูลการขายหรือรายจ่ายในเดือน {month_label}")
@@ -1461,8 +1457,7 @@ else:
 
         st.write("🏆 **5 อันดับเมนูขายดีที่สุด**")
         st.dataframe(
-            top_sellers.head(5).style.format({"ยอดขายรวม (บาท)": "{:,.0f} บ."}), 
-            use_container_width=True
+            top_sellers.head(5).style.format({"ยอดขายรวม (บาท)": "{:,.0f} บ."})
         )
     else:
         st.info("ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก")
@@ -1476,14 +1471,17 @@ else:
             ["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "💸 บันทึกรายจ่าย", "👥 สมาชิก"]
         )
 
-        # TAB 1: เพิ่มเมนูใหม่
+        # TAB 1: เพิ่มเมนูใหม่ (แก้ไขใช้ st.form เพื่อให้ปุ่มบันทึกทำงานสมบูรณ์)
         with tab_add_menu:
             st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
-            new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
-            new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=24, key="m_add_price")
-            new_img_file = st.file_uploader("🖼️ เลือกรูปภาพเมนู (PNG, JPG)", type=["png", "jpg", "jpeg"], key="m_add_img")
-            
-            if st.button("💾 บันทึกเมนูใหม่", use_container_width=True, key="btn_save_m"):
+            with st.form("add_new_menu_form", clear_on_submit=True):
+                new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
+                new_price = st.number_input("ราคาขายปกติ (บาท)", min_value=0, value=24, key="m_add_price")
+                new_img_file = st.file_uploader("🖼️ เลือกรูปภาพเมนู (PNG, JPG)", type=["png", "jpg", "jpeg"], key="m_add_img")
+                
+                submit_new_menu = st.form_submit_button("💾 บันทึกเมนูใหม่")
+
+            if submit_new_menu:
                 if new_name.strip() != "":
                     img_base64_str = ""
                     if new_img_file is not None:
@@ -1502,7 +1500,7 @@ else:
             if st.session_state.role == "admin":
                 if len(current_menu) > 0:
                     delete_item = st.selectbox("เลือกเมนูที่ต้องการลบออกจากระบบ", list(current_menu.keys()), key="m_del_item")
-                    if st.button("❌ ลบเมนูนี้", use_container_width=True, key="btn_del_m"):
+                    if st.button("❌ ลบเมนูนี้", key="btn_del_m"):
                         confirm_delete_menu_dialog(delete_item)
                 else:
                     st.info("ไม่มีเมนูในระบบให้ลบ")
@@ -1513,7 +1511,7 @@ else:
         with tab_topping:
             if st.session_state.role == "admin":
                 st.write("🔄 **รีเซ็ต/ซิงค์ท็อปปิ้งจากป้ายร้าน:**")
-                if st.button("⚡ ซิงค์ท็อปปิ้งจากป้ายร้าน (5บ./10บ.) เข้า Database", use_container_width=True, key="btn_sync_toppings"):
+                if st.button("⚡ ซิงค์ท็อปปิ้งจากป้ายร้าน (5บ./10บ.) เข้า Database", key="btn_sync_toppings"):
                     reset_and_sync_toppings()
                     st.success("🎉 ซิงค์ท็อปปิ้งเรียบร้อยแล้ว!")
                     st.rerun()
@@ -1522,7 +1520,7 @@ else:
                 st.write("➕ **เพิ่มท็อปปิ้งใหม่:**")
                 t_name = st.text_input("ชื่อท็อปปิ้ง", key="t_add_name")
                 t_price = st.number_input("ราคาบวกเพิ่ม (บาท)", min_value=0.0, value=5.0, step=1.0, key="t_add_price")
-                if st.button("💾 บันทึกท็อปปิ้ง", use_container_width=True, key="btn_save_t"):
+                if st.button("💾 บันทึกท็อปปิ้ง", key="btn_save_t"):
                     if t_name.strip() != "":
                         save_topping_db(t_name.strip(), float(t_price))
                         st.cache_data.clear()
@@ -1535,22 +1533,25 @@ else:
                 st.write("🗑️ **ลบท็อปปิ้ง:**")
                 if current_toppings:
                     del_t_name = st.selectbox("เลือกท็อปปิ้งที่ต้องการลบ", list(current_toppings.keys()), key="t_del_select")
-                    if st.button("❌ ลบท็อปปิ้งนี้", use_container_width=True, key="btn_del_t"):
+                    if st.button("❌ ลบท็อปปิ้งนี้", key="btn_del_t"):
                         confirm_delete_topping_dialog(del_t_name)
                 else:
                     st.info("ไม่มีท็อปปิ้งให้ลบ")
             else:
                 st.error("🔒 เฉพาะ Admin เท่านั้นที่จัดการท็อปปิ้งได้")
 
-        # TAB 4: บันทึกรายจ่าย
+        # TAB 4: บันทึกรายจ่าย (ปรับใช้ st.form เพื่อป้องกันปัญหาปุ่มกดไม่ติด)
         with tab_expense:
             st.write("💸 **ลงบันทึกรายจ่ายประจำวัน:**")
-            exp_date = st.date_input("วันที่จ่าย", value=date.today(), key="exp_date_input")
-            exp_title = st.text_input("รายการรายจ่าย (เช่น ค่าซื้อน้ำแข็ง, ค่าวัตถุดิบชา)", key="exp_title_input")
-            exp_amount = st.number_input("จำนวนเงิน (บาท)", min_value=1.0, value=100.0, step=10.0, key="exp_amount_input")
-            exp_note = st.text_input("หมายเหตุเพิ่มเติม (ถ้ามี)", key="exp_note_input")
+            with st.form("add_expense_form", clear_on_submit=True):
+                exp_date = st.date_input("วันที่จ่าย", value=date.today(), key="exp_date_input")
+                exp_title = st.text_input("รายการรายจ่าย (เช่น ค่าซื้อน้ำแข็ง, ค่าวัตถุดิบชา)", key="exp_title_input")
+                exp_amount = st.number_input("จำนวนเงิน (บาท)", min_value=1.0, value=100.0, step=10.0, key="exp_amount_input")
+                exp_note = st.text_input("หมายเหตุเพิ่มเติม (ถ้ามี)", key="exp_note_input")
+                
+                submit_expense = st.form_submit_button("💾 บันทึกรายจ่าย")
 
-            if st.button("💾 บันทึกรายจ่าย", use_container_width=True, key="btn_save_expense"):
+            if submit_expense:
                 if exp_title.strip() != "":
                     add_expense(exp_date, exp_title.strip(), float(exp_amount), exp_note.strip(), st.session_state.username)
                     st.success(f"บันทึกรายจ่าย '{exp_title}' จำนวน {exp_amount:,.0f} บาท เรียบร้อย!")
@@ -1563,12 +1564,12 @@ else:
             if st.session_state.role == "admin":
                 st.write("🟢 **สถานะผู้ใช้งาน**")
                 all_users_status = get_all_users_with_status()
-                st.dataframe(pd.DataFrame(all_users_status), use_container_width=True)
+                st.dataframe(pd.DataFrame(all_users_status))
                 
                 other_users = [u["ผู้ใช้งาน"] for u in all_users_status if u["ผู้ใช้งาน"] != st.session_state.username]
                 if other_users:
                     selected_user_str = st.selectbox("เลือกบัญชีที่จะลบ", other_users, key="m_del_user")
-                    if st.button("❌ ลบบัญชีนี้", key="btn_del_usr", use_container_width=True):
+                    if st.button("❌ ลบบัญชีนี้", key="btn_del_usr"):
                         confirm_delete_user_dialog(selected_user_str)
                 else:
                     st.info("ไม่มีบัญชีอื่นให้ลบ")
