@@ -124,6 +124,8 @@ MONTH_NAMES_TH = {
 }
 
 def translate_to_thai(text):
+    # ใช้แปลออเดอร์เก่าที่ไม่มีชื่อภาษาไทยในฟิลด์ 'name'
+    # ออเดอร์ใหม่จะใช้ชื่อภาษาไทยจาก 'name' โดยตรงเพื่อความแม่นยำ
     if not text:
         return text
     
@@ -957,19 +959,25 @@ def render_kitchen_orders():
                         st.caption(f"🕒 เวลาที่สั่ง: {created_at}")
                         
                         for item in items:
-                            raw_display = item.get('display_name') or item.get('name', 'ไม่ระบุรายการ')
+                            # สำคัญ: ฝั่งลูกค้าบันทึกชื่อภาษาไทยจริงไว้ใน 'name'
+                            # ส่วน 'display_name' เป็นชื่อที่แปลตามภาษาที่ลูกค้าเลือก
+                            # ดังนั้นหลังบ้านให้ใช้ 'name' ก่อนเสมอ เพื่อให้ครัวเห็นภาษาไทย
+                            raw_name_th = item.get('name')
+                            raw_display = raw_name_th or item.get('display_name') or 'ไม่ระบุรายการ'
                             item_display = translate_to_thai(raw_display)
                             item_price = item.get('price', 0.0)
-                            
+
+                            # รองรับข้อมูลออเดอร์เก่าที่อาจเก็บท็อปปิ้งแยกไว้
                             topping_val = item.get('topping')
                             topping_translated = translate_to_thai(topping_val) if topping_val else ""
-                            
-                            has_topping = (topping_translated and topping_translated != "ไม่ใส่ท็อปปิ้ง") or ("(+" in item_display)
-                            
-                            if not has_topping:
-                                full_item_text = f"{item_display} (ไม่ใส่ท็อปปิ้ง)"
-                            else:
+
+                            # ถ้ามีท็อปปิ้งรวมอยู่ในชื่อแล้ว ไม่ต้องเติมซ้ำ
+                            if topping_translated and topping_translated != "ไม่ใส่ท็อปปิ้ง" and topping_translated not in item_display:
+                                full_item_text = f"{item_display} (+{topping_translated})"
+                            elif "(+" in item_display or "(+" in str(raw_name_th or ""):
                                 full_item_text = item_display
+                            else:
+                                full_item_text = f"{item_display} (ไม่ใส่ท็อปปิ้ง)"
 
                             st.write(f"- **{full_item_text}** ({item_price} บาท)")
                             item_summary_text.append(full_item_text)
