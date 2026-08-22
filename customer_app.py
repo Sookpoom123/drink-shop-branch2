@@ -1,7 +1,6 @@
 import psycopg2
 import streamlit as st
 import json
-import html
 from datetime import datetime
 from deep_translator import GoogleTranslator
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -31,7 +30,7 @@ def init_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (ปรับปรุงสำหรับแสดงผล 3 คอลัมน์บนแท็บเล็ต) ---
+# --- CSS ตกแต่งเพิ่มเติม ---
 st.markdown(
     """
     <style>
@@ -61,22 +60,12 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* 📌 ปรับขนาดรูปภาพให้พอดีกับ 3 คอลัมน์ */
-    .menu-img-container {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-        height: 110px;
-        margin-bottom: 6px;
-        overflow: hidden;
-    }
-
-    .menu-img {
-        max-height: 110px;
-        width: auto;
-        border-radius: 6px;
-        object-fit: contain;
+    /* ตกแต่ง Container ของเมนูให้อยู่ในสไตล์คุมโทน */
+    [data-testid="stContainer"] {
+        background-color: #FFFFFF !important;
+        border: 1.5px solid #C8B2A2 !important;
+        border-radius: 10px !important;
+        padding: 8px !important;
     }
 
     div.stButton > button {
@@ -210,52 +199,6 @@ LANGUAGES = {
         "success_msg": "🎉 Order sent successfully!",
         "success_backend_msg": "🎉 Order successful! Your order has been sent to the kitchen.",
         "toast_added": "Added!"
-    }
-}
-
-MENU_TRANSLATIONS = {
-    "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文": "冰红茶 Tea"},
-    "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文": "柠檬茶 Lemon Tea"},
-    "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文": "柠檬绿 Lemon Green"},
-    "ชาเขียวใส": {"🇲🇲 Myanmar": "လက်ဖက်စိမ်း", "🇨🇳 中文": "绿茶 Green Tea"},
-    "โอเลี้ยง": {"🇲🇲 Myanmar": "ကော်ဖီနက်အေး", "🇨🇳 中文": "黑咖啡 Black Coffee"},
-    "โกโก้": {"🇲🇲 Myanmar": "ကိုကိုး", "🇨🇳 中文": "可可 Cocoa"},
-    "โอวัลติน": {"🇲🇲 Myanmar": "အိုဗာတင်း", "🇨🇳 中文": "阿华田 Ovaltine"},
-    "เนสกาแฟ": {"🇲🇲 Myanmar": "နက်စ်ကဖေး", "🇨🇳 中文": "雀巢 Nescafe"},
-    "กาแฟโบราณ": {"🇲🇲 Myanmar": "ရှေးဟောင်း ကော်ဖီ", "🇨🇳 中文": "古早咖啡 Thai Coffee"},
-    "นมชมพู": {"🇲🇲 Myanmar": "နို့ဆီ ပန်းရောင်", "🇨🇳 中文": "粉红奶 Pink Milk"},
-    "ชาไต้หวัน": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည်", "🇨🇳 中文": "台湾奶茶 Taiwan Tea"},
-    "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文": "泰奶 Thai Milk Tea"},
-    "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文": "绿奶茶 Green Milk"},
-    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文": "香蕉鲜奶 Banana Milk"},
-    "ชาแคนตาลูป(แคนตาลูป)": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文": "哈密瓜茶 Melon Tea"},
-    "ชาแคนตาลูป": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文": "哈密瓜茶 Melon Tea"},
-    "ชาแดงน้ำผึ้งมะนาว": {"🇲🇲 Myanmar": "ပျားရည် သံပုရာ လက်ဖက်နီ", "🇨🇳 中文": "蜂蜜柠檬红茶 Honey Lemon Red Tea"},
-    "ชาแดงปั่น": {"🇲🇲 Myanmar": "လက်ဖက်နီ ဖျော်စက်", "🇨🇳 中文": "冰沙红茶 Red Tea Smoothie"},
-    "ชาไต้หวันบราวน์ชูการ์ปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား ဖျော်စက်", "🇨🇳 中文": "黑糖台湾奶茶冰沙 Brown Sugar Milk Tea Smoothie"},
-    "ชาไต้หวันปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည် ဖျော်စက်", "🇨🇳 中文": "台湾奶茶冰沙 Taiwan Milk Tea Smoothie"},
-    "ชานมกาแฟ": {"🇲🇲 Myanmar": "နို့ ကော်ဖီ", "🇨🇳 中文": "咖啡奶茶 Coffee Milk Tea"},
-    "ชานมโกโก้": {"🇲🇲 Myanmar": "နို့ ကိုကိုး", "🇨🇳 中文": "可可奶茶 Cocoa Milk Tea"},
-    "ชานมโกโก้ปั่น": {"🇲🇲 Myanmar": "နို့ ကိုကိုး ဖျော်စက်", "🇨🇳 中文": "可可奶茶冰沙 Cocoa Milk Tea Smoothie"},
-    "ชานมคาราเมล": {"🇲🇲 Myanmar": "ကာရာမဲလ် နို့လက်ဖက်ရည်", "🇨🇳 中文": "焦糖奶茶 Caramel Milk Tea"},
-    "ชานมไต้หวันบราวน์ชูการ์": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား နို့လက်ဖက်ရည်", "🇨🇳 中文": "黑糖台湾奶茶 Brown Sugar Taiwan Milk Tea"},
-    "ชานมน้ำผึ้ง": {"🇲🇲 Myanmar": "ပျားရည် နို့လက်ဖက်ရည်", "🇨🇳 中文": "蜂蜜奶茶 Honey Milk Tea"},
-    "ชานมผลไม้": {"🇲🇲 Myanmar": "သစ်သီး နို့လက်ဖက်ရည်", "🇨🇳 中文": "水果奶茶 Fruit Milk Tea"},
-    "ชานมเผือก": {"🇲🇲 Myanmar": "ပိန်းဥ နို့လက်ဖက်ရည်", "🇨🇳 中文": "香芋奶茶 Taro Milk Tea"}
-}
-
-WORD_MAP = {
-    "🇲🇲 Myanmar": {
-        "ชา": "လက်ဖက်ရည်", "นม": "နို့", "เขียว": "စိမ်း", "แดง": "နီ", 
-        "ไต้หวัน": "ထိုင်ဝမ်", "ปั่น": "ဖျော်စက်", "มะนาว": "သံပုရာ", 
-        "น้ำผึ้ง": "ပျားရည်", "เผือก": "ပိန်းဥ", "โกโก้": "ကိုကိုး", 
-        "กาแฟ": "ကော်ဖီ", "คาราเมล": "ကာရာမဲလ်", "บราวน์ชูการ์": "စိမ်းလမ်း သကြား"
-    },
-    "🇨🇳 中文": {
-        "ชา": "Tea", "นม": "Milk", "เขียว": "Green", "แดง": "Red", 
-        "ไต้หวัน": "Taiwan", "ปั่น": "Smoothie", "มะนาว": "Lemon", 
-        "น้ำผึ้ง": "Honey", "เผือก": "Taro", "โกโก้": "Cocoa", 
-        "กาแฟ": "Coffee", "คาราเมล": "Caramel", "บราวน์ชูการ์": "Brown Sugar"
     }
 }
 
@@ -416,31 +359,23 @@ else:
                 item_name_th, display_name, info = filtered_items[i + j]
                 price, cost, image_url = info["price"], info["cost"], info.get("image_url")
 
-                # 📌 ล้างค่าอักขระพิเศษ ป้องกัน HTML แท็กหลุดออกมาแสดงผล
-                safe_display_name = html.escape(str(display_name))
-
                 counter_key = f"counter_{item_name_th}"
                 if counter_key not in st.session_state:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    img_html = f'<div class="menu-img-container"><img src="{image_url}" class="menu-img" /></div>' if image_url else ''
-                    
-                    st.markdown(
-                        f"""
-                        <div style="background-color: #FFFFFF; border: 1.5px solid #C8B2A2; border-radius: 10px; padding: 8px; text-align: center; margin-bottom: 6px;">
-                            {img_html}
-                            <div style="font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">
-                                {safe_display_name}
-                            </div>
-                            <div style="color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px;">
-                                {price:.0f} {t['baht']}
-                            </div>
-                        </div>
-                        """, 
-                        unsafe_allow_html=True
-                    )
-                    
+                    # 📌 ปรับเปลี่ยนมาใช้ st.container แทน HTML เพื่อแก้ปัญหาโค้ดหลุดแบบ 100%
+                    with st.container(border=True):
+                        # แสดงรูปภาพ (ถ้ามี URL รูป)
+                        if image_url and str(image_url).startswith("http"):
+                            st.image(image_url, use_container_width=True)
+                        else:
+                            # แสดงไอคอน 🧋 แทนหากไม่มีรูป
+                            st.markdown("<h1 style='text-align: center; margin: 0; padding: 10px;'>🧋</h1>", unsafe_allow_html=True)
+                        
+                        st.markdown(f"<div style='text-align: center; font-weight: 700; font-size: 13px; min-height: 32px; display: flex; align-items: center; justify-content: center; color: #2C221E; line-height: 1.2;'>{display_name}</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='text-align: center; color: #8C6D58; font-weight: 800; font-size: 14px; margin-top: 2px; margin-bottom: 4px;'>{price:.0f} {t['baht']}</div>", unsafe_allow_html=True)
+
                     multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
