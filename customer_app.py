@@ -1,6 +1,5 @@
 import psycopg2
 import streamlit as st
-import time
 import json
 from datetime import datetime
 
@@ -12,8 +11,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- เชื่อมต่อฐานข้อมูล Supabase / Postgres ---
-def get_db_connection():
+# --- ระบบเชื่อมต่อ DB แบบ Cached Connection (ลด latency ในการเปิด connection ใหม่) ---
+@st.cache_resource
+def init_connection():
     db_url = None
     if "postgres" in st.secrets and "url" in st.secrets["postgres"]:
         db_url = st.secrets["postgres"]["url"]
@@ -28,16 +28,12 @@ def get_db_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง ---
+# --- CSS ตกแต่ง (แก้ไขปัญหาการซ้อนทับของ Element และ Scrollbar) ---
 st.markdown(
     """
     <style>
-    [data-testid="stToolbar"] { display: none !important; }
-    #MainMenu { visibility: hidden; }
-    footer { visibility: hidden; }
-    header[data-testid="stHeader"] { visibility: hidden !important; }
+    [data-testid="stToolbar"], #MainMenu, footer, header[data-testid="stHeader"] { display: none !important; }
 
-    /* 🔒 ป้องกัน Scrollbar แนวนอนเด็ดขาด */
     html, body, .stApp {
         overflow-x: hidden !important;
         max-width: 100vw !important;
@@ -51,7 +47,6 @@ st.markdown(
         padding-left: 0.5rem !important;
         padding-right: 0.5rem !important;
         max-width: 100% !important;
-        overflow-x: hidden !important;
     }
 
     .customer-header {
@@ -63,17 +58,14 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* ⚡ จัด Layout Columns ไม่ให้ดันขอบจอ ⚡ */
     div[data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
         gap: 6px !important;
         width: 100% !important;
-        max-width: 100% !important;
     }
 
-    /* 📌 จัดวางรูปภาพให้อยู่กึ่งกลาง ไม่ทับปุ่ม */
     div[data-testid="stImage"] {
         display: flex !important;
         justify-content: center !important;
@@ -89,12 +81,6 @@ st.markdown(
         width: auto !important;
     }
 
-    .card-divider {
-        border-top: 1px dashed #D3C4B8;
-        margin: 4px 0;
-    }
-
-    /* ปุ่มกดเพิ่มเมนู */
     div.stButton > button {
         background: #8C6D58 !important;
         color: #FFFFFF !important;
@@ -111,7 +97,6 @@ st.markdown(
         background: #6E5341 !important;
     }
 
-    /* ตะกร้าสินค้า */
     .cart-container {
         background-color: #FFFFFF !important;
         border: 2px solid #C8B2A2 !important;
@@ -257,40 +242,29 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# --- ดึงข้อมูลเมนูและท็อปปิ้งจาก DB ---
-@st.cache_data(ttl=2)
+# --- ดึงข้อมูลเมนูและท็อปปิ้งพร้อม Caching ---
+@st.cache_data(ttl=60)
 def load_db_data():
     menu_dict = {}
     topping_dict = {}
-    
     try:
-        conn = get_db_connection()
-        c = conn.cursor()
-        
-        try:
+        conn = init_connection()
+        if conn.closed != 0:
+            st.cache_resource.clear()
+            conn = init_connection()
+
+        with conn.cursor() as c:
             c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
-            menu_rows = c.fetchall()
-            menu_dict = {
-                r[0]: {
-                    "cost": float(r[1]), 
-                    "price": float(r[2]), 
-                    "image_url": str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip() != "" else None
-                } for r in menu_rows
-            }
-        except Exception as e:
-            st.error(f"❌ Error ดึงข้อมูลเมนู: {e}")
+            for r in c.fetchall():
+                # แก้เงื่อนไขดึงรูปให้รอบรับ URL ทุกรูปแบบ ไม่ตัดรูปทิ้ง
+                img = str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip() != "" else None
+                menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2]), "image_url": img}
             
-        try:
             c.execute("SELECT name, price FROM toppings ORDER BY price ASC, name ASC")
-            topping_rows = c.fetchall()
-            topping_dict = {r[0]: {"cost": 1.0, "price": float(r[1])} for r in topping_rows}
-        except Exception as e:
-            topping_dict = {"ไข่มุก": {"cost": 1.0, "price": 5.0}}
-            
-        conn.close()
+            for r in c.fetchall():
+                topping_dict[r[0]] = {"cost": 1.0, "price": float(r[1])}
     except Exception as e:
-        st.error(f"❌ Connection Error: {e}")
-        
+        st.error(f"❌ Error ดึงข้อมูล DB: {e}")
     return menu_dict, topping_dict
 
 if "cart" not in st.session_state:
@@ -302,10 +276,7 @@ selected_lang = st.segmented_control(
     options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文/EN"],
     default="🇹🇭 ไทย",
     key="lang_segmented"
-)
-
-if not selected_lang:
-    selected_lang = "🇹🇭 ไทย"
+) or "🇹🇭 ไทย"
 
 t = LANGUAGES[selected_lang]
 
@@ -333,11 +304,11 @@ topping_options = [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_t
 if not current_menu:
     st.info("⏳ กำลังโหลดรายการเมนู...")
 else:
-    filtered_items = []
-    for item_name_th, info in current_menu.items():
-        display_name = translate_item(item_name_th, selected_lang)
-        if search_query.lower() in item_name_th.lower() or search_query.lower() in display_name.lower():
-            filtered_items.append((item_name_th, display_name, info))
+    filtered_items = [
+        (k, translate_item(k, selected_lang), v) 
+        for k, v in current_menu.items() 
+        if search_query.lower() in k.lower() or search_query.lower() in translate_item(k, selected_lang).lower()
+    ]
 
     NUM_COLS = 2
     for i in range(0, len(filtered_items), NUM_COLS):
@@ -345,76 +316,49 @@ else:
         for j in range(NUM_COLS):
             if i + j < len(filtered_items):
                 item_name_th, display_name, info = filtered_items[i + j]
-                price = info["price"]
-                cost = info["cost"]
-                image_url = info.get("image_url")
+                price, cost, image_url = info["price"], info["cost"], info.get("image_url")
 
                 counter_key = f"counter_{item_name_th}"
                 if counter_key not in st.session_state:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 โหลดรูปภาพความปลอดภัยสูง
                     if image_url:
-                        try:
-                            st.image(image_url, use_container_width=True)
-                        except Exception:
-                            pass
+                        st.image(image_url, use_container_width=True)
 
-                    # 📌 ชื่อเมนูและราคา
                     st.markdown(
                         f"""
                         <div style="background-color: #FFFFFF; border: 1.5px solid #C8B2A2; border-radius: 10px; padding: 8px; text-align: center; margin-bottom: 6px;">
-                            <div style="font-weight: 700; font-size: 14px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
+                            <div style="font-weight: 700; font-size: 13px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
                             <div style="color: #8C6D58; font-weight: 800; font-size: 13px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
                         </div>
                         """, 
                         unsafe_allow_html=True
                     )
                     
-                    # 📌 ท็อปปิ้ง
-                    multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
                         options=topping_options, 
-                        key=multiselect_key,
+                        key=f"tp_{item_name_th}_{st.session_state[counter_key]}",
                         placeholder=t['no_topping']
                     )
                     
-                    # 📌 ปุ่มเพิ่มรายการ
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
-                        total_tp_price = 0.0
-                        total_tp_cost = 0.0
-                        selected_tp_names = []
+                        total_tp_price = sum(current_toppings.get(tp.split(" (+")[0], {}).get("price", 0) for tp in selected_tps)
+                        total_tp_cost = sum(current_toppings.get(tp.split(" (+")[0], {}).get("cost", 0) for tp in selected_tps)
+                        selected_tp_names = [tp.split(" (+")[0] for tp in selected_tps]
 
-                        if selected_tps:
-                            for selected_tp in selected_tps:
-                                raw_tp_name = selected_tp.split(" (+")[0]
-                                tp_info = current_toppings.get(raw_tp_name, {"price": 0.0, "cost": 0.0})
-                                total_tp_price += tp_info["price"]
-                                total_tp_cost += tp_info["cost"]
-                                selected_tp_names.append(raw_tp_name)
-
-                        final_price = price + total_tp_price
-                        final_cost = cost + total_tp_cost
-                        
                         tp_text = f" (+{', '.join(selected_tp_names)})" if selected_tp_names else ""
-                        item_save_name = f"{item_name_th}{tp_text}"
-                        item_display_save = f"{display_name}{tp_text}"
 
                         st.session_state.cart.append({
-                            "name": item_save_name,
-                            "display_name": item_display_save,
-                            "price": final_price,
-                            "cost": final_cost
+                            "name": f"{item_name_th}{tp_text}",
+                            "display_name": f"{display_name}{tp_text}",
+                            "price": price + total_tp_price,
+                            "cost": cost + total_tp_cost
                         })
 
                         st.session_state[counter_key] += 1
-                        st.toast(f"{t['toast_added']}", icon="🛒")
-                        time.sleep(0.2)
-                        st.rerun()
-
-                    st.write("")
+                        st.toast(t['toast_added'], icon="🛒")
 
 # ==========================================
 # 🛒 ตะกร้าสินค้า
@@ -424,8 +368,8 @@ st.divider()
 if not st.session_state.cart:
     st.info(f"🛒 {t['cart_title']}: {t['cart_empty']}")
 else:
-    total_price = 0
-    total_cost = 0
+    total_price = sum(item['price'] for item in st.session_state.cart)
+    total_cost = sum(item['cost'] for item in st.session_state.cart)
 
     st.markdown(
         f"""
@@ -439,7 +383,7 @@ else:
         col_name, col_price, col_del = st.columns([5, 3, 1], vertical_alignment="center")
         
         with col_name:
-            st.markdown(f"<span style='font-size: 12px; font-weight: 600; color: #2C221E;'>• {cart_item.get('display_name', cart_item['name'])}</span>", unsafe_allow_html=True)
+            st.markdown(f"<span style='font-size: 12px; font-weight: 600; color: #2C221E;'>• {cart_item['display_name']}</span>", unsafe_allow_html=True)
         
         with col_price:
             st.markdown(f"<span style='font-size: 12px; font-weight: 700; color: #8C6D58;'>{cart_item['price']:.0f} {t['baht']}</span>", unsafe_allow_html=True)
@@ -447,10 +391,6 @@ else:
         with col_del:
             if st.button("❌", key=f"remove_cart_{idx}", help="ลบรายการนี้"):
                 st.session_state.cart.pop(idx)
-                st.rerun()
-
-        total_price += cart_item['price']
-        total_cost += cart_item['cost']
 
     st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 8px 0;'>", unsafe_allow_html=True)
 
@@ -472,30 +412,23 @@ else:
                 st.error(t['err_table'])
             else:
                 try:
-                    conn = get_db_connection()
-                    c = conn.cursor()
-                    items_json = json.dumps(st.session_state.cart, ensure_ascii=False)
-                    
-                    current_time = datetime.now().time()
-                    created_timestamp = datetime.combine(order_date, current_time)
-                    
-                    c.execute("""
-                        INSERT INTO orders (table_number, items_json, total_price, total_cost, status, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s)
-                    """, (table_number.strip(), items_json, total_price, total_cost, 'pending', created_timestamp))
-                    
-                    conn.commit()
-                    conn.close()
+                    conn = init_connection()
+                    with conn.cursor() as c:
+                        items_json = json.dumps(st.session_state.cart, ensure_ascii=False)
+                        created_timestamp = datetime.combine(order_date, datetime.now().time())
+                        
+                        c.execute("""
+                            INSERT INTO orders (table_number, items_json, total_price, total_cost, status, created_at)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (table_number.strip(), items_json, total_price, total_cost, 'pending', created_timestamp))
+                        conn.commit()
 
                     st.session_state.cart = []
                     st.balloons()
                     st.success(t['success_msg'])
-                    time.sleep(1.5)
-                    st.rerun()
                 except Exception as e:
                     st.error(f"Error submitting order: {e}")
 
     with col_clear_btn:
         if st.button(t['btn_clear'], use_container_width=True):
             st.session_state.cart = []
-            st.rerun()
