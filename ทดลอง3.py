@@ -762,7 +762,13 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
         ''', (sale_date_str, f"📱 {table_no_translated}: {combined_item_names}", items_count, total_price_f, total_cost_f, total_profit, "ลูกค้าสั่งเอง", "📱 QR/Scan"))
         
         conn.commit()
-        st.cache_data.clear()
+
+        # ล้างเฉพาะ cache ที่เกี่ยวข้อง เพื่อไม่ให้ทั้งเว็บต้องโหลดข้อมูลใหม่
+        get_pending_orders.clear()
+        get_sales_by_date.clear()
+        get_sales_by_month.clear()
+        get_all_sales.clear()
+
         return True
     except Exception as e:
         conn.rollback()
@@ -901,19 +907,24 @@ def confirm_delete_user_dialog(username):
         if st.button("❌ ยกเลิก", use_container_width=True, key="btn_cancel_del_user"):
             st.rerun()
 
-# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh (10s) ---
-@st.fragment(run_every="10s")
+# --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh (3s) ---
+# Cache เฉพาะผลการอ่านออเดอร์ระยะสั้น เพื่อลดการยิง Database ซ้ำ
 @st.cache_data(ttl=2, show_spinner=False)
 def get_pending_orders():
     conn = get_db_connection()
     cur = conn.cursor()
     try:
-        cur.execute("SELECT id, table_number, items_json, total_price, total_cost, created_at FROM orders WHERE status = 'pending' ORDER BY id ASC")
+        cur.execute(
+            "SELECT id, table_number, items_json, total_price, total_cost, created_at "
+            "FROM orders WHERE status = 'pending' ORDER BY id ASC"
+        )
         return cur.fetchall()
     finally:
         cur.close()
         release_db_connection(conn)
 
+# รีเฟรชเฉพาะกล่องออเดอร์ทุก 3 วินาที ไม่รีเฟรชทั้งหน้า
+@st.fragment(run_every="3s")
 def render_kitchen_orders():
     st.markdown('<div class="pos-card" style="border: 2px solid #8C6D58;">', unsafe_allow_html=True)
     st.subheader("🔔 ออเดอร์เด้งเข้าครัว (สั่งจากลูกค้า)")
@@ -968,8 +979,9 @@ def render_kitchen_orders():
                     with col_o2:
                         if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
                             if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost, created_at=created_at):
-                                st.success("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย!")
-                                st.rerun()
+                                st.toast("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย! 🎉")
+                                # รีเฟรชเฉพาะส่วนออเดอร์ทันที ไม่โหลดทั้งหน้า
+                                st.rerun(scope="fragment")
 
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดออเดอร์: {e}")
