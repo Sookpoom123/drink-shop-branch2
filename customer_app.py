@@ -134,6 +134,12 @@ st.markdown(
     .stMultiSelect label {
         display: none !important;
     }
+
+    /* 📌 ปิดไม่ให้กดพิมพ์ค้นหาใน Multiselect (คลิกเพื่อเลือกรายการจาก Dropdown ได้อย่างเดียว) */
+    div[data-testid="stMultiSelect"] input {
+        pointer-events: none !important;
+        caret-color: transparent !important;
+    }
     </style>
     """, 
     unsafe_allow_html=True
@@ -399,13 +405,11 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 ตรวจสอบและสร้าง HTML สำหรับรูปภาพ
                     if image_url:
                         img_html = f'<div class="menu-img-container"><img src="{image_url}" class="menu-img" /></div>'
                     else:
                         img_html = '<div class="menu-img-container"><h1 style="margin: 0;">🧋</h1></div>'
 
-                    # 📌 แสดงผลการ์ดแบบปลอดภัย 100% ไม่หลุดเป็นแท็ก
                     card_html = (
                         '<div class="menu-card">'
                         f'{img_html}'
