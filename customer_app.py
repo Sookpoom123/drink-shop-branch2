@@ -135,10 +135,16 @@ st.markdown(
         display: none !important;
     }
 
-    /* 📌 ปิดไม่ให้กดพิมพ์ค้นหาใน Multiselect (คลิกเพื่อเลือกรายการจาก Dropdown ได้อย่างเดียว) */
+    /* 📌 ปิดการพิมพ์ใน Multiselect */
     div[data-testid="stMultiSelect"] input {
-        pointer-events: none !important;
         caret-color: transparent !important;
+        user-select: none !important;
+        -webkit-user-select: none !important;
+    }
+
+    div[data-testid="stMultiSelect"] input:focus {
+        outline: none !important;
+        box-shadow: none !important;
     }
     </style>
     """, 
@@ -535,3 +541,20 @@ else:
         if st.button(t['btn_clear'], use_container_width=True):
             st.session_state.cart = []
             st.rerun()
+
+# 📌 JS บังคับห้ามพิมพ์ลงในช่อง Multiselect ทุกช่องในหน้า
+st.components.v1.html(
+    """
+    <script>
+    const observer = new MutationObserver(() => {
+        const inputs = parent.document.querySelectorAll('div[data-testid="stMultiSelect"] input');
+        inputs.forEach(input => {
+            input.setAttribute('readonly', 'true');
+            input.addEventListener('keydown', (e) => e.preventDefault());
+        });
+    });
+    observer.observe(parent.document.body, { childList: true, subtree: true });
+    </script>
+    """,
+    height=0,
+)
