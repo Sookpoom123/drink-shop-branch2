@@ -28,7 +28,7 @@ def init_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (จัดรูปให้อยู่กึ่งกลางเป๊ะทุกหน้าจอ) ---
+# --- CSS ตกแต่ง ---
 st.markdown(
     """
     <style>
@@ -58,21 +58,22 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    /* 📌 จัดการรูปภาพให้อยู่กึ่งกลางเสมอ ไม่ว่าจะจอกว้างแค่ไหน */
-    div[data-testid="stImage"] {
-        display: flex !important;
-        justify-content: center !important;
-        align-items: center !important;
-        width: 100% !important;
-        margin: 0 auto 8px auto !important;
+    /* 📌 บังคับรูปให้อยู่ตรงกลาง 100% */
+    .menu-img-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 8px;
     }
 
-    div[data-testid="stImage"] img {
-        border-radius: 8px !important;
-        object-fit: contain !important;
-        max-height: 160px !important;
-        width: auto !important;
-        margin: 0 auto !important;
+    .menu-img {
+        max-height: 160px;
+        width: auto;
+        border-radius: 8px;
+        object-fit: contain;
+        display: block;
+        margin: 0 auto;
     }
 
     div.stButton > button {
@@ -316,9 +317,16 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 รูปภาพจัดให้อยู่กึ่งกลางในคอลัมน์ของตัวเอง
+                    # 📌 ใช้ HTML Tag แสดงรูปภาพโดยตรงเพื่อบังคับจัดกึ่งกลาง 100%
                     if image_url:
-                        st.image(image_url, use_container_width=True)
+                        st.markdown(
+                            f"""
+                            <div class="menu-img-container">
+                                <img src="{image_url}" class="menu-img" />
+                            </div>
+                            """, 
+                            unsafe_allow_html=True
+                        )
 
                     st.markdown(
                         f"""
@@ -330,7 +338,6 @@ else:
                         unsafe_allow_html=True
                     )
                     
-                    # 📌 Key ที่ขึ้นอยู่กับ counter เพื่อให้สามารถล้างค่าท็อปปิ้งเดิมได้อัตโนมัติเมื่อกดสั่ง
                     multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
@@ -353,7 +360,6 @@ else:
                             "cost": cost + total_tp_cost
                         })
 
-                        # ⚡ เปลี่ยนค่า counter เพื่อให้ multiselect รีเซ็ตเป็นค่าว่างทันทีสำหรับคิวถัดไป
                         st.session_state[counter_key] += 1
                         st.toast(t['toast_added'], icon="🛒")
                         st.rerun()
