@@ -3,7 +3,6 @@ import streamlit as st
 import json
 from datetime import datetime
 from deep_translator import GoogleTranslator
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # --- ตั้งค่าหน้าตาเว็บไซต์ ---
 st.set_page_config(
@@ -30,7 +29,7 @@ def init_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง ---
+# --- CSS ตกแต่ง & ปิดการพิมพ์บนมือถือแบบไม่กิน RAM ---
 st.markdown(
     """
     <style>
@@ -135,16 +134,10 @@ st.markdown(
         display: none !important;
     }
 
-    /* 📌 ปิดการพิมพ์ใน Multiselect */
+    /* 📌 ปิดการพิมพ์ค้นหาใน Multiselect แบบ Lightweight */
     div[data-testid="stMultiSelect"] input {
+        pointer-events: none !important;
         caret-color: transparent !important;
-        user-select: none !important;
-        -webkit-user-select: none !important;
-    }
-
-    div[data-testid="stMultiSelect"] input:focus {
-        outline: none !important;
-        box-shadow: none !important;
     }
     </style>
     """, 
@@ -250,38 +243,18 @@ LANGUAGES = {
 }
 
 @st.cache_data(ttl=86400, show_spinner=False)
-def _translate_text_cached(text, target):
-    if not text or not str(text).strip():
-        return str(text or "")
-    try:
-        return GoogleTranslator(source="th", target=target).translate(str(text))
-    except Exception:
-        return str(text)
-
-@st.cache_data(ttl=86400, show_spinner=False)
-def _translate_many_cached(texts, target):
-    unique_texts = list(dict.fromkeys(str(x) for x in texts if str(x).strip()))
-    if not unique_texts:
-        return {}
-
-    if target == "th":
-        return {x: x for x in unique_texts}
-
-    results = {x: x for x in unique_texts}
-
-    def worker(value):
-        return value, _translate_text_cached(value, target)
-
-    with ThreadPoolExecutor(max_workers=min(6, len(unique_texts))) as executor:
-        futures = [executor.submit(worker, value) for value in unique_texts]
-        for future in as_completed(futures):
-            try:
-                original, translated = future.result()
-                results[original] = translated or original
-            except Exception:
-                pass
-
-    return results
+def get_translated_map(texts_tuple, target_lang):
+    if target_lang == "th":
+        return {x: x for x in texts_tuple}
+    
+    result = {}
+    translator = GoogleTranslator(source="th", target=target_lang)
+    for text in texts_tuple:
+        try:
+            result[text] = translator.translate(text)
+        except Exception:
+            result[text] = text
+    return result
 
 def get_translation_target(lang):
     return {
@@ -291,25 +264,13 @@ def get_translation_target(lang):
         "🇬🇧 English": "en"
     }.get(lang, "th")
 
-def translate_item(name_th, lang, translated_map=None):
-    name_th = str(name_th or "")
-    if lang == "🇹🇭 ไทย":
-        return name_th
-    if translated_map is not None:
-        return translated_map.get(name_th, name_th)
-    return _translate_text_cached(name_th, get_translation_target(lang))
-
-# --- ดึงข้อมูลเมนูและท็อปปิ้ง ---
-@st.cache_data(ttl=60)
+# --- ดึงข้อมูลเมนูและท็อปปิ้ง (Cache 10 นาทีเพื่อความเร็ว) ---
+@st.cache_data(ttl=600)
 def load_db_data():
     menu_dict = {}
     topping_dict = {}
     try:
         conn = init_connection()
-        if conn.closed != 0:
-            st.cache_resource.clear()
-            conn = init_connection()
-
         with conn.cursor() as c:
             c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
             for r in c.fetchall():
@@ -363,32 +324,20 @@ with col_top3:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 current_menu, current_toppings = load_db_data()
-
 target_lang = get_translation_target(selected_lang)
 
-all_texts_to_translate = list(current_menu.keys()) + list(current_toppings.keys())
-if selected_lang == "🇹🇭 ไทย":
-    translated_map = {str(x): str(x) for x in all_texts_to_translate}
-else:
-    translated_map = _translate_many_cached(tuple(all_texts_to_translate), target_lang)
+all_texts = tuple(list(current_menu.keys()) + list(current_toppings.keys()))
+translated_map = get_translated_map(all_texts, target_lang)
 
-menu_display_map = {
-    name_th: translate_item(name_th, selected_lang, translated_map)
-    for name_th in current_menu.keys()
-}
-topping_display_map = {
-    translate_item(name_th, selected_lang, translated_map): name_th
-    for name_th in current_toppings.keys()
-}
+menu_display_map = {name_th: translated_map.get(name_th, name_th) for name_th in current_menu.keys()}
+topping_display_map = {translated_map.get(name_th, name_th): name_th for name_th in current_toppings.keys()}
 
 topping_options = [
     f"{display_name} (+{int(current_toppings[th_name]['price'])} {t['baht']})"
     for display_name, th_name in topping_display_map.items()
 ]
 
-if not current_menu:
-    st.info("⏳ กำลังโหลดรายการเมนู...")
-else:
+if current_menu:
     filtered_items = [
         (name_th, menu_display_map.get(name_th, name_th), info)
         for name_th, info in current_menu.items()
@@ -541,20 +490,3 @@ else:
         if st.button(t['btn_clear'], use_container_width=True):
             st.session_state.cart = []
             st.rerun()
-
-# 📌 JS บังคับห้ามพิมพ์ลงในช่อง Multiselect ทุกช่องในหน้า
-st.components.v1.html(
-    """
-    <script>
-    const observer = new MutationObserver(() => {
-        const inputs = parent.document.querySelectorAll('div[data-testid="stMultiSelect"] input');
-        inputs.forEach(input => {
-            input.setAttribute('readonly', 'true');
-            input.addEventListener('keydown', (e) => e.preventDefault());
-        });
-    });
-    observer.observe(parent.document.body, { childList: true, subtree: true });
-    </script>
-    """,
-    height=0,
-)
