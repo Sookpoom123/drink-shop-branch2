@@ -3,6 +3,7 @@ import streamlit as st
 import json
 from datetime import datetime
 from deep_translator import GoogleTranslator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # --- ตั้งค่าหน้าตาเว็บไซต์ ---
 st.set_page_config(
@@ -255,30 +256,61 @@ WORD_MAP = {
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def _translate_text_cached(text, target):
-    """แปลข้อความจากภาษาไทยอัตโนมัติ และ cache ผลลัพธ์ 24 ชั่วโมง"""
+    """แปลข้อความ 1 รายการและเก็บ cache 24 ชั่วโมง"""
     if not text or not str(text).strip():
-        return text
+        return str(text or "")
     try:
         return GoogleTranslator(source="th", target=target).translate(str(text))
     except Exception:
-        # หากบริการแปลมีปัญหา ให้คืนข้อความเดิมเพื่อไม่ให้หน้าเว็บ error
         return str(text)
 
-def translate_item(name_th, lang):
-    # ภาษาไทยไม่ต้องแปล
-    if lang == "🇹🇭 ไทย":
-        return name_th
+@st.cache_data(ttl=86400, show_spinner=False)
+def _translate_many_cached(texts, target):
+    """
+    แปลหลายรายการพร้อมกัน แล้ว cache ผลลัพธ์
+    ลดเวลาค้างตอนเปลี่ยนภาษา และไม่เรียก API ซ้ำในทุกการ rerun
+    """
+    unique_texts = list(dict.fromkeys(str(x) for x in texts if str(x).strip()))
+    if not unique_texts:
+        return {}
 
-    # แปลชื่อเมนูจากฐานข้อมูลแบบอัตโนมัติ ไม่ต้องเพิ่มชื่อเมนูทีละรายการ
-    target_map = {
+    # ภาษาไทยไม่ต้องส่งออกไปแปล
+    if target == "th":
+        return {x: x for x in unique_texts}
+
+    results = {x: x for x in unique_texts}
+
+    def worker(value):
+        return value, _translate_text_cached(value, target)
+
+    # จำกัดจำนวนการเชื่อมต่อพร้อมกัน เพื่อลดโอกาสถูกบริการแปลบล็อก
+    with ThreadPoolExecutor(max_workers=min(6, len(unique_texts))) as executor:
+        futures = [executor.submit(worker, value) for value in unique_texts]
+        for future in as_completed(futures):
+            try:
+                original, translated = future.result()
+                results[original] = translated or original
+            except Exception:
+                pass
+
+    return results
+
+def get_translation_target(lang):
+    return {
+        "🇹🇭 ไทย": "th",
         "🇲🇲 Myanmar": "my",
         "🇨🇳 中文": "zh-CN",
         "🇬🇧 English": "en"
-    }
-    target = target_map.get(lang)
-    if not target:
+    }.get(lang, "th")
+
+def translate_item(name_th, lang, translated_map=None):
+    """แปลจากแผนที่ที่สร้างครั้งเดียวต่อภาษา เพื่อลดการค้างของหน้าเว็บ"""
+    name_th = str(name_th or "")
+    if lang == "🇹🇭 ไทย":
         return name_th
-    return _translate_text_cached(str(name_th), target)
+    if translated_map is not None:
+        return translated_map.get(name_th, name_th)
+    return _translate_text_cached(name_th, get_translation_target(lang))
 
 # --- ดึงข้อมูลเมนูและท็อปปิ้ง ---
 @st.cache_data(ttl=60)
@@ -347,8 +379,27 @@ with col_top3:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 current_menu, current_toppings = load_db_data()
-# แสดงชื่อท็อปปิ้งตามภาษาที่เลือก แต่ยังใช้ชื่อไทยเป็นรหัสข้อมูลจริง
-topping_display_map = {translate_item(k, selected_lang): k for k in current_toppings.keys()}
+
+# ===== แปลข้อมูลครั้งเดียวต่อภาษา แล้วนำผลไปใช้ทั้งหน้า =====
+# ปัญหาเดิม: translate_item ถูกเรียกซ้ำหลายครั้งในลูปเมนู/ค้นหา/ท็อปปิ้ง
+# ทำให้การเปลี่ยนภาษาเกิด network request จำนวนมากและหน้า Streamlit ดูเหมือนค้าง
+target_lang = get_translation_target(selected_lang)
+
+all_texts_to_translate = list(current_menu.keys()) + list(current_toppings.keys())
+if selected_lang == "🇹🇭 ไทย":
+    translated_map = {str(x): str(x) for x in all_texts_to_translate}
+else:
+    translated_map = _translate_many_cached(tuple(all_texts_to_translate), target_lang)
+
+menu_display_map = {
+    name_th: translate_item(name_th, selected_lang, translated_map)
+    for name_th in current_menu.keys()
+}
+topping_display_map = {
+    translate_item(name_th, selected_lang, translated_map): name_th
+    for name_th in current_toppings.keys()
+}
+
 topping_options = [
     f"{display_name} (+{int(current_toppings[th_name]['price'])} {t['baht']})"
     for display_name, th_name in topping_display_map.items()
@@ -357,10 +408,14 @@ topping_options = [
 if not current_menu:
     st.info("⏳ กำลังโหลดรายการเมนู...")
 else:
+    # ใช้คำแปลที่สร้างไว้แล้ว ห้ามเรียก API ซ้ำในลูปนี้
     filtered_items = [
-        (k, translate_item(k, selected_lang), v) 
-        for k, v in current_menu.items() 
-        if search_query.lower() in k.lower() or search_query.lower() in translate_item(k, selected_lang).lower()
+        (name_th, menu_display_map.get(name_th, name_th), info)
+        for name_th, info in current_menu.items()
+        if (
+            search_query.lower() in name_th.lower()
+            or search_query.lower() in menu_display_map.get(name_th, name_th).lower()
+        )
     ]
 
     NUM_COLS = 2
