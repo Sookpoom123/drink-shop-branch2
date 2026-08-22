@@ -73,19 +73,7 @@ st.markdown(
         max-width: 100% !important;
     }
 
-    /* การ์ดเมนูเครื่องดื่ม */
-    .menu-card {
-        background-color: #FFFFFF !important;
-        border: 1.5px solid #C8B2A2 !important;
-        border-radius: 10px !important;
-        padding: 6px 4px !important;
-        box-shadow: 0 2px 4px rgba(140, 109, 88, 0.08) !important;
-        margin-bottom: 4px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    /* 📌 จัดวางรูปภาพให้อยู่กึ่งกลางพอดี */
+    /* 📌 จัดวางรูปภาพให้อยู่กึ่งกลาง ไม่ทับปุ่ม */
     div[data-testid="stImage"] {
         display: flex !important;
         justify-content: center !important;
@@ -97,7 +85,7 @@ st.markdown(
     div[data-testid="stImage"] img {
         border-radius: 8px !important;
         object-fit: contain !important;
-        max-height: 160px !important;
+        max-height: 150px !important;
         width: auto !important;
     }
 
@@ -286,7 +274,7 @@ def load_db_data():
                 r[0]: {
                     "cost": float(r[1]), 
                     "price": float(r[2]), 
-                    "image_url": str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip().startswith("http") else None
+                    "image_url": str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip() != "" else None
                 } for r in menu_rows
             }
         except Exception as e:
@@ -366,25 +354,25 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 แสดงผลรูปภาพตรงๆ ไม่ต้องสร้าง columns ซ้อนข้างใน
+                    # 📌 โหลดรูปภาพความปลอดภัยสูง
                     if image_url:
                         try:
                             st.image(image_url, use_container_width=True)
                         except Exception:
-                            pass  # ข้ามกรณีรูปภาพโหลดไม่ได้
+                            pass
 
+                    # 📌 ชื่อเมนูและราคา
                     st.markdown(
                         f"""
-                        <div class="menu-card">
-                            <div style="text-align: center;">
-                                <div style="font-weight: 700; font-size: 13px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
-                                <div style="color: #8C6D58; font-weight: 800; font-size: 13px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
-                            </div>
-                            <div class="card-divider"></div>
+                        <div style="background-color: #FFFFFF; border: 1.5px solid #C8B2A2; border-radius: 10px; padding: 8px; text-align: center; margin-bottom: 6px;">
+                            <div style="font-weight: 700; font-size: 14px; min-height: 28px; display: flex; align-items: center; justify-content: center; line-height: 1.2; color: #2C221E;">{display_name}</div>
+                            <div style="color: #8C6D58; font-weight: 800; font-size: 13px; margin-top: 2px;">{price:.0f} {t['baht']}</div>
+                        </div>
                         """, 
                         unsafe_allow_html=True
                     )
                     
+                    # 📌 ท็อปปิ้ง
                     multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
@@ -393,6 +381,7 @@ else:
                         placeholder=t['no_topping']
                     )
                     
+                    # 📌 ปุ่มเพิ่มรายการ
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
                         total_tp_price = 0.0
                         total_tp_cost = 0.0
@@ -425,7 +414,7 @@ else:
                         time.sleep(0.2)
                         st.rerun()
 
-                    st.markdown("</div>", unsafe_allow_html=True)
+                    st.write("")
 
 # ==========================================
 # 🛒 ตะกร้าสินค้า
