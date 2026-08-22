@@ -124,8 +124,6 @@ MONTH_NAMES_TH = {
 }
 
 def translate_to_thai(text):
-    # ใช้แปลออเดอร์เก่าที่ไม่มีชื่อภาษาไทยในฟิลด์ 'name'
-    # ออเดอร์ใหม่จะใช้ชื่อภาษาไทยจาก 'name' โดยตรงเพื่อความแม่นยำ
     if not text:
         return text
     
@@ -302,7 +300,6 @@ def make_hashes(password):
 
 @st.cache_resource
 def init_db():
-    """สร้างโครงสร้างฐานข้อมูลเพียงครั้งเดียวต่อ process เพื่อลดการล็อกและความหน่วง"""
     conn = get_db_connection()
     c = conn.cursor()
     try:
@@ -347,8 +344,6 @@ def init_db():
                 image_url TEXT
             )
         ''')
-        # ตรวจสอบคอลัมน์ image_url ก่อนทำ ALTER TABLE
-        # ป้องกันการพยายามล็อกตารางทุกครั้งที่ Streamlit รัน init_db()
         c.execute("""
             SELECT 1
             FROM information_schema.columns
@@ -416,7 +411,6 @@ def reset_and_sync_toppings():
     st.cache_data.clear()
 
 def update_user_activity(username):
-    """อัปเดตสถานะออนไลน์แบบ throttled ไม่เขียน DB ทุกครั้งที่ Streamlit rerun"""
     if not username:
         return
     now_ts = time.time()
@@ -765,7 +759,6 @@ def complete_order_and_record_sale(order_id, table_no_translated, item_summary_t
         
         conn.commit()
 
-        # ล้างเฉพาะ cache ที่เกี่ยวข้อง เพื่อไม่ให้ทั้งเว็บต้องโหลดข้อมูลใหม่
         get_pending_orders.clear()
         get_sales_by_date.clear()
         get_sales_by_month.clear()
@@ -802,7 +795,6 @@ def edit_menu_image_dialog(menu_name, current_img_url):
                 img_bytes = uploaded_file.read()
                 base64_str = f"data:image/png;base64,{base64.b64encode(img_bytes).decode('utf-8')}"
                 
-                # ดึงราคาปัจจุบันมาคงเดิม
                 m_info = current_menu.get(menu_name, {"price": 0.0, "cost": 0.0})
                 save_menu_item_db(menu_name, m_info["price"], cost=m_info["cost"], image_url=base64_str)
                 st.success("อัปเดตรูปภาพเรียบร้อย!")
@@ -910,7 +902,6 @@ def confirm_delete_user_dialog(username):
             st.rerun()
 
 # --- ส่วนของการแสดงออเดอร์เด้งเข้าครัวแบบ Auto-refresh (3s) ---
-# Cache เฉพาะผลการอ่านออเดอร์ระยะสั้น เพื่อลดการยิง Database ซ้ำ
 @st.cache_data(ttl=2, show_spinner=False)
 def get_pending_orders():
     conn = get_db_connection()
@@ -933,6 +924,36 @@ def render_kitchen_orders():
 
     try:
         pending_orders = get_pending_orders()
+        current_count = len(pending_orders) if pending_orders else 0
+
+        # ตั้งค่าระบบตรวจจับออเดอร์ใหม่เพื่อเล่นเสียง
+        if "last_order_count" not in st.session_state:
+            st.session_state.last_order_count = current_count
+
+        # 🔔 ถ้ามีออเดอร์ใหม่เข้ามามากกว่าเดิม ให้ส่งเสียงดัง 2 วินาที
+        if current_count > st.session_state.last_order_count:
+            audio_html = """
+            <audio id="orderNotification" autoplay>
+                <source src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" type="audio/mpeg">
+            </audio>
+            <script>
+                var sound = document.getElementById("orderNotification");
+                if (sound) {
+                    sound.play().catch(function(error) {
+                        console.log("Autoplay blocked by browser until user interacts with the page.");
+                    });
+                    setTimeout(function() {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }, 2000); // เล่นเสียงยาวนาน 2 วินาที (2000 มิลลิวินาที)
+                }
+            </script>
+            """
+            st.components.v1.html(audio_html, height=0)
+            st.toast("🔔 มีออเดอร์ใหม่เข้ามา!", icon="🔔")
+
+        # อัปเดตจำนวนออเดอร์ล่าสุดเข้า Session State
+        st.session_state.last_order_count = current_count
 
         if not pending_orders:
             st.info("🟢 ยังไม่มีออเดอร์ใหม่เข้ามา...")
@@ -959,19 +980,14 @@ def render_kitchen_orders():
                         st.caption(f"🕒 เวลาที่สั่ง: {created_at}")
                         
                         for item in items:
-                            # สำคัญ: ฝั่งลูกค้าบันทึกชื่อภาษาไทยจริงไว้ใน 'name'
-                            # ส่วน 'display_name' เป็นชื่อที่แปลตามภาษาที่ลูกค้าเลือก
-                            # ดังนั้นหลังบ้านให้ใช้ 'name' ก่อนเสมอ เพื่อให้ครัวเห็นภาษาไทย
                             raw_name_th = item.get('name')
                             raw_display = raw_name_th or item.get('display_name') or 'ไม่ระบุรายการ'
                             item_display = translate_to_thai(raw_display)
                             item_price = item.get('price', 0.0)
 
-                            # รองรับข้อมูลออเดอร์เก่าที่อาจเก็บท็อปปิ้งแยกไว้
                             topping_val = item.get('topping')
                             topping_translated = translate_to_thai(topping_val) if topping_val else ""
 
-                            # ถ้ามีท็อปปิ้งรวมอยู่ในชื่อแล้ว ไม่ต้องเติมซ้ำ
                             if topping_translated and topping_translated != "ไม่ใส่ท็อปปิ้ง" and topping_translated not in item_display:
                                 full_item_text = f"{item_display} (+{topping_translated})"
                             elif "(+" in item_display or "(+" in str(raw_name_th or ""):
@@ -988,7 +1004,6 @@ def render_kitchen_orders():
                         if st.button("✅ ทำเสร็จแล้ว", key=f"done_order_{order_id}", type="primary", use_container_width=True):
                             if complete_order_and_record_sale(order_id, table_no_translated, item_summary_text, len(items), o_total_price, o_total_cost, created_at=created_at):
                                 st.toast("ทำเสร็จแล้วและบันทึกลงยอดขายเรียบร้อย! 🎉")
-                                # รีเฟรชเฉพาะส่วนออเดอร์ทันที ไม่โหลดทั้งหน้า
                                 st.rerun(scope="fragment")
 
     except Exception as e:
@@ -1334,7 +1349,7 @@ else:
         st.markdown('</div>', unsafe_allow_html=True)
 
     else:
-        # 🗓️ โหมดดูสรุปรายเดือน (เดือนนี้/เดือนต่อๆ ไป/ย้อนหลัง)
+        # 🗓️ โหมดดูสรุปรายเดือน
         st.markdown('<div class="pos-card">', unsafe_allow_html=True)
         st.subheader("🗓️ สรุปทางการเงินรายเดือน (เดือนนี้ / เดือนต่อๆ ไป และดูย้อนหลัง)")
 
@@ -1461,7 +1476,7 @@ else:
             ["➕ เพิ่มเมนูใหม่", "🗑️ ลบเมนู", "🧋 จัดการท็อปปิ้ง", "💸 บันทึกรายจ่าย", "👥 สมาชิก"]
         )
 
-        # TAB 1: เพิ่มเมนูใหม่ (พร้อมอัปโหลดรูปภาพ)
+        # TAB 1: เพิ่มเมนูใหม่
         with tab_add_menu:
             st.write("➕ **เพิ่มเมนูใหม่แบบกำหนดเอง:**")
             new_name = st.text_input("ชื่อเมนูใหม่", key="m_add_name")
