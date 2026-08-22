@@ -85,26 +85,20 @@ st.markdown(
         box-sizing: border-box !important;
     }
 
-    /* 📌 บังคับทับ Style ของ Streamlit เพื่อจัดวางรูปภาพให้อยู่กึ่งกลางพอดี */
-    div[data-testid="stImage"], 
-    div[data-testid="stImage"] > div, 
-    div[data-testid="stImageContainer"] {
+    /* 📌 จัดวางรูปภาพให้อยู่กึ่งกลางพอดี */
+    div[data-testid="stImage"] {
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        margin-left: auto !important;
-        margin-right: auto !important;
-        text-align: center !important;
+        margin: 0 auto 6px auto !important;
         width: 100% !important;
     }
 
     div[data-testid="stImage"] img {
         border-radius: 8px !important;
         object-fit: contain !important;
-        max-height: 200px !important;
+        max-height: 160px !important;
         width: auto !important;
-        display: block !important;
-        margin: 0 auto !important;
     }
 
     .card-divider {
@@ -292,7 +286,7 @@ def load_db_data():
                 r[0]: {
                     "cost": float(r[1]), 
                     "price": float(r[2]), 
-                    "image_url": r[3] if len(r) > 3 and r[3] else None
+                    "image_url": str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip().startswith("http") else None
                 } for r in menu_rows
             }
         except Exception as e:
@@ -372,11 +366,12 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
-                    # 📌 จัดกึ่งกลางภาพด้วย st.columns([1, 2, 1])
+                    # 📌 แสดงผลรูปภาพตรงๆ ไม่ต้องสร้าง columns ซ้อนข้างใน
                     if image_url:
-                        img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
-                        with img_col2:
+                        try:
                             st.image(image_url, use_container_width=True)
+                        except Exception:
+                            pass  # ข้ามกรณีรูปภาพโหลดไม่ได้
 
                     st.markdown(
                         f"""
