@@ -2,6 +2,7 @@ import psycopg2
 import streamlit as st
 import json
 from datetime import datetime
+from deep_translator import GoogleTranslator
 
 # --- ตั้งค่าหน้าตาเว็บไซต์ ---
 st.set_page_config(
@@ -157,7 +158,7 @@ LANGUAGES = {
         "success_backend_msg": "🎉 မှာယူမှု အောင်မြင်ပါသည်! အော်ဒါကို နောက်ဘက်စနစ်သို့ ပို့ပြီးပါပြီ",
         "toast_added": "ထည့်ပြီးပါပြီ!"
     },
-    "🇨🇳 中文/EN": {
+    "🇨🇳 中文": {
         "header_title": "🧋 Takeaway Order 🥤",
         "date_label": "📅 Date:",
         "table_label": "👤 Name / Queue:",
@@ -179,38 +180,62 @@ LANGUAGES = {
         "success_msg": "🎉 Order Sent! Please take a seat.",
         "success_backend_msg": "🎉 Order successful! Your order has been sent to the kitchen.",
         "toast_added": "Added!"
+    },
+    "🇬🇧 English": {
+        "header_title": "🧋 Takeaway Order 🥤",
+        "date_label": "📅 Date:",
+        "table_label": "👤 Name / Queue:",
+        "table_default": "Takeaway",
+        "search_label": "🔍 Search:",
+        "search_placeholder": "Search...",
+        "select_menu": "👇 Select menu:",
+        "price": "Price",
+        "baht": "THB",
+        "topping_label": "Topping:",
+        "no_topping": "Select...",
+        "btn_add": "➕ Add",
+        "cart_title": "Cart",
+        "cart_empty": "Cart Empty",
+        "total_price": "Total",
+        "btn_order": "🚀 Confirm Order",
+        "btn_clear": "🗑️ Clear",
+        "err_table": "⚠️ Please enter Name / Queue No.",
+        "success_msg": "🎉 Order sent successfully!",
+        "success_backend_msg": "🎉 Order successful! Your order has been sent to the kitchen.",
+        "toast_added": "Added!"
     }
 }
 
+# เก็บตารางแปลเดิมไว้เป็นข้อมูลสำรอง แต่ระบบด้านล่างจะใช้ Google Translate
 MENU_TRANSLATIONS = {
-    "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文/EN": "冰红茶 Tea"},
-    "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文/EN": "柠檬茶 Lemon Tea"},
-    "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "柠檬绿 Lemon Green"},
-    "ชาเขียวใส": {"🇲🇲 Myanmar": "လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "绿茶 Green Tea"},
-    "โอเลี้ยง": {"🇲🇲 Myanmar": "ကော်ဖီနက်အေး", "🇨🇳 中文/EN": "黑咖啡 Black Coffee"},
-    "โกโก้": {"🇲🇲 Myanmar": "ကိုကိုး", "🇨🇳 中文/EN": "可可 Cocoa"},
-    "โอวัลติน": {"🇲🇲 Myanmar": "အိုဗာတင်း", "🇨🇳 中文/EN": "阿华田 Ovaltine"},
-    "เนสกาแฟ": {"🇲🇲 Myanmar": "နက်စ်ကဖေး", "🇨🇳 中文/EN": "雀巢 Nescafe"},
-    "กาแฟโบราณ": {"🇲🇲 Myanmar": "ရှေးဟောင်း ကော်ဖီ", "🇨🇳 中文/EN": "古早咖啡 Thai Coffee"},
-    "นมชมพู": {"🇲🇲 Myanmar": "နို့ဆီ ပန်းရောင်", "🇨🇳 中文/EN": "粉红奶 Pink Milk"},
-    "ชาไต้หวัน": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည်", "🇨🇳 中文/EN": "台湾奶茶 Taiwan Tea"},
-    "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "泰奶 Thai Milk Tea"},
-    "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文/EN": "绿奶茶 Green Milk"},
-    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文/EN": "香蕉鲜奶 Banana Milk"},
-    "ชาแคนตาลูป(แคนตาลูป)": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
-    "ชาแคนตาลูป": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文/EN": "哈密瓜茶 Melon Tea"},
-    "ชาแดงน้ำผึ้งมะนาว": {"🇲🇲 Myanmar": "ပျားရည် သံပုရာ လက်ဖက်နီ", "🇨🇳 中文/EN": "蜂蜜柠檬红茶 Honey Lemon Red Tea"},
-    "ชาแดงปั่น": {"🇲🇲 Myanmar": "လက်ဖက်နီ ဖျော်စက်", "🇨🇳 中文/EN": "冰沙红茶 Red Tea Smoothie"},
-    "ชาไต้หวันบราวน์ชูการ์ปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား ဖျော်စက်", "🇨🇳 中文/EN": "黑糖台湾奶茶冰沙 Brown Sugar Milk Tea Smoothie"},
-    "ชาไต้หวันปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည် ဖျော်စက်", "🇨🇳 中文/EN": "台湾奶茶冰沙 Taiwan Milk Tea Smoothie"},
-    "ชานมกาแฟ": {"🇲🇲 Myanmar": "နို့ ကော်ဖီ", "🇨🇳 中文/EN": "咖啡奶茶 Coffee Milk Tea"},
-    "ชานมโกโก้": {"🇲🇲 Myanmar": "နို့ ကိုကိုး", "🇨🇳 中文/EN": "可可奶茶 Cocoa Milk Tea"},
-    "ชานมโกโก้ปั่น": {"🇲🇲 Myanmar": "နို့ ကိုကိုး ဖျော်စက်", "🇨🇳 中文/EN": "可可奶茶冰沙 Cocoa Milk Tea Smoothie"},
-    "ชานมคาราเมล": {"🇲🇲 Myanmar": "ကာရာမဲလ် နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "焦糖奶茶 Caramel Milk Tea"},
-    "ชานมไต้หวันบราวน์ชูการ์": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "黑糖台湾奶茶 Brown Sugar Taiwan Milk Tea"},
-    "ชานมน้ำผึ้ง": {"🇲🇲 Myanmar": "ပျားရည် နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "蜂蜜奶茶 Honey Milk Tea"},
-    "ชานมผลไม้": {"🇲🇲 Myanmar": "သစ်သီး နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "水果奶茶 Fruit Milk Tea"},
-    "ชานมเผือก": {"🇲🇲 Myanmar": "ပိန်းဥ နို့လက်ဖက်ရည်", "🇨🇳 中文/EN": "香芋奶茶 Taro Milk Tea"}
+    "ชาดำเย็น": {"🇲🇲 Myanmar": "လက်ဖက်ရည်အေး", "🇨🇳 中文": "冰红茶 Tea"},
+    "ชามะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်ရည်", "🇨🇳 中文": "柠檬茶 Lemon Tea"},
+    "ชาเขียวมะนาว": {"🇲🇲 Myanmar": "သံပုရာ လက်ဖက်စိမ်း", "🇨🇳 中文": "柠檬绿 Lemon Green"},
+    "ชาเขียวใส": {"🇲🇲 Myanmar": "လက်ဖက်စိမ်း", "🇨🇳 中文": "绿茶 Green Tea"},
+    "โอเลี้ยง": {"🇲🇲 Myanmar": "ကော်ဖီနက်အေး", "🇨🇳 中文": "黑咖啡 Black Coffee"},
+    "โกโก้": {"🇲🇲 Myanmar": "ကိုကိုး", "🇨🇳 中文": "可可 Cocoa"},
+    "โอวัลติน": {"🇲🇲 Myanmar": "အိုဗာတင်း", "🇨🇳 中文": "阿华田 Ovaltine"},
+    "เนสกาแฟ": {"🇲🇲 Myanmar": "နက်စ်ကဖေး", "🇨🇳 中文": "雀巢 Nescafe"},
+    "กาแฟโบราณ": {"🇲🇲 Myanmar": "ရှေးဟောင်း ကော်ဖီ", "🇨🇳 中文": "古早咖啡 Thai Coffee"},
+    "นมชมพู": {"🇲🇲 Myanmar": "နို့ဆီ ပန်းရောင်", "🇨🇳 中文": "粉红奶 Pink Milk"},
+    "ชาไต้หวัน": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည်", "🇨🇳 中文": "台湾奶茶 Taiwan Tea"},
+    "ชาเย็น(ชานมไทย)": {"🇲🇲 Myanmar": "ထိုင်း နို့လက်ဖက်ရည်", "🇨🇳 中文": "泰奶 Thai Milk Tea"},
+    "ชาเขียว(ชาเขียวนม)": {"🇲🇲 Myanmar": "နို့ လက်ဖက်စိမ်း", "🇨🇳 中文": "绿奶茶 Green Milk"},
+    "กล้วยนมสด": {"🇲🇲 Myanmar": "ငှက်ပျော နို့အေး", "🇨🇳 中文": "香蕉鲜奶 Banana Milk"},
+    "ชาแคนตาลูป(แคนตาลูป)": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文": "哈密瓜茶 Melon Tea"},
+    "ชาแคนตาลูป": {"🇲🇲 Myanmar": "သခွားမွှေး လက်ဖက်ရည်", "🇨🇳 中文": "哈密瓜茶 Melon Tea"},
+    "ชาแดงน้ำผึ้งมะนาว": {"🇲🇲 Myanmar": "ပျားရည် သံပုရာ လက်ဖက်နီ", "🇨🇳 中文": "蜂蜜柠檬红茶 Honey Lemon Red Tea"},
+    "ชาแดงปั่น": {"🇲🇲 Myanmar": "လက်ဖက်နီ ဖျော်စက်", "🇨🇳 中文": "冰沙红茶 Red Tea Smoothie"},
+    "ชาไต้หวันบราวน์ชูการ์ปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား ဖျော်စက်", "🇨🇳 中文": "黑糖台湾奶茶冰沙 Brown Sugar Milk Tea Smoothie"},
+    "ชาไต้หวันปั่น": {"🇲🇲 Myanmar": "ထိုင်ဝမ် လက်ဖက်ရည် ဖျော်စက်", "🇨🇳 中文": "台湾奶茶冰沙 Taiwan Milk Tea Smoothie"},
+    "ชานมกาแฟ": {"🇲🇲 Myanmar": "နို့ ကော်ဖီ", "🇨🇳 中文": "咖啡奶茶 Coffee Milk Tea"},
+    "ชานมโกโก้": {"🇲🇲 Myanmar": "နို့ ကိုကိုး", "🇨🇳 中文": "可可奶茶 Cocoa Milk Tea"},
+    "ชานมโกโก้ปั่น": {"🇲🇲 Myanmar": "နို့ ကိုကိုး ဖျော်စက်", "🇨🇳 中文": "可可奶茶冰沙 Cocoa Milk Tea Smoothie"},
+    "ชานมคาราเมล": {"🇲🇲 Myanmar": "ကာရာမဲလ် နို့လက်ဖက်ရည်", "🇨🇳 中文": "焦糖奶茶 Caramel Milk Tea"},
+    "ชานมไต้หวันบราวน์ชูการ์": {"🇲🇲 Myanmar": "ထိုင်ဝမ် စိမ်းလမ်း သကြား နို့လက်ဖက်ရည်", "🇨🇳 中文": "黑糖台湾奶茶 Brown Sugar Taiwan Milk Tea"},
+    "ชานมน้ำผึ้ง": {"🇲🇲 Myanmar": "ပျားရည် နို့လက်ဖက်ရည်", "🇨🇳 中文": "蜂蜜奶茶 Honey Milk Tea"},
+    "ชานมผลไม้": {"🇲🇲 Myanmar": "သစ်သီး နို့လက်ဖက်ရည်", "🇨🇳 中文": "水果奶茶 Fruit Milk Tea"},
+    "ชานมเผือก": {"🇲🇲 Myanmar": "ပိန်းဥ နို့လက်ဖက်ရည်", "🇨🇳 中文": "香芋奶茶 Taro Milk Tea"}
 }
 
 WORD_MAP = {
@@ -220,7 +245,7 @@ WORD_MAP = {
         "น้ำผึ้ง": "ပျားရည်", "เผือก": "ပိန်းဥ", "โกโก้": "ကိုကိုး", 
         "กาแฟ": "ကော်ဖီ", "คาราเมล": "ကာရာမဲလ်", "บราวน์ชูการ์": "စိမ်းလမ်း သကြား"
     },
-    "🇨🇳 中文/EN": {
+    "🇨🇳 中文": {
         "ชา": "Tea", "นม": "Milk", "เขียว": "Green", "แดง": "Red", 
         "ไต้หวัน": "Taiwan", "ปั่น": "Smoothie", "มะนาว": "Lemon", 
         "น้ำผึ้ง": "Honey", "เผือก": "Taro", "โกโก้": "Cocoa", 
@@ -228,17 +253,32 @@ WORD_MAP = {
     }
 }
 
+@st.cache_data(ttl=86400, show_spinner=False)
+def _translate_text_cached(text, target):
+    """แปลข้อความจากภาษาไทยอัตโนมัติ และ cache ผลลัพธ์ 24 ชั่วโมง"""
+    if not text or not str(text).strip():
+        return text
+    try:
+        return GoogleTranslator(source="th", target=target).translate(str(text))
+    except Exception:
+        # หากบริการแปลมีปัญหา ให้คืนข้อความเดิมเพื่อไม่ให้หน้าเว็บ error
+        return str(text)
+
 def translate_item(name_th, lang):
+    # ภาษาไทยไม่ต้องแปล
     if lang == "🇹🇭 ไทย":
         return name_th
-    if name_th in MENU_TRANSLATIONS and lang in MENU_TRANSLATIONS[name_th]:
-        return MENU_TRANSLATIONS[name_th][lang]
-    result = name_th
-    words = WORD_MAP.get(lang, {})
-    for th_word, target_word in words.items():
-        if th_word in result:
-            result = result.replace(th_word, f" {target_word} ")
-    return result.strip()
+
+    # แปลชื่อเมนูจากฐานข้อมูลแบบอัตโนมัติ ไม่ต้องเพิ่มชื่อเมนูทีละรายการ
+    target_map = {
+        "🇲🇲 Myanmar": "my",
+        "🇨🇳 中文": "zh-CN",
+        "🇬🇧 English": "en"
+    }
+    target = target_map.get(lang)
+    if not target:
+        return name_th
+    return _translate_text_cached(str(name_th), target)
 
 # --- ดึงข้อมูลเมนูและท็อปปิ้ง ---
 @st.cache_data(ttl=60)
@@ -274,7 +314,7 @@ if "order_success" not in st.session_state:
 # --- เลือกภาษา ---
 selected_lang = st.segmented_control(
     "Language",
-    options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文/EN"],
+    options=["🇹🇭 ไทย", "🇲🇲 Myanmar", "🇨🇳 中文", "🇬🇧 English"],
     default="🇹🇭 ไทย",
     key="lang_segmented"
 ) or "🇹🇭 ไทย"
@@ -307,7 +347,12 @@ with col_top3:
     search_query = st.text_input(t['search_label'], "", placeholder=t['search_placeholder'])
 
 current_menu, current_toppings = load_db_data()
-topping_options = [f"{k} (+{int(v['price'])} {t['baht']})" for k, v in current_toppings.items()]
+# แสดงชื่อท็อปปิ้งตามภาษาที่เลือก แต่ยังใช้ชื่อไทยเป็นรหัสข้อมูลจริง
+topping_display_map = {translate_item(k, selected_lang): k for k in current_toppings.keys()}
+topping_options = [
+    f"{display_name} (+{int(current_toppings[th_name]['price'])} {t['baht']})"
+    for display_name, th_name in topping_display_map.items()
+]
 
 if not current_menu:
     st.info("⏳ กำลังโหลดรายการเมนู...")
@@ -361,15 +406,31 @@ else:
                     )
                     
                     if st.button(t['btn_add'], key=f"b_{item_name_th}", use_container_width=True):
-                        total_tp_price = sum(current_toppings.get(tp.split(" (+")[0], {}).get("price", 0) for tp in selected_tps)
-                        total_tp_cost = sum(current_toppings.get(tp.split(" (+")[0], {}).get("cost", 0) for tp in selected_tps)
-                        selected_tp_names = [tp.split(" (+")[0] for tp in selected_tps]
+                        selected_tp_display_names = [tp.split(" (+")[0] for tp in selected_tps]
+                        selected_tp_names = [
+                            topping_display_map.get(display_name, display_name)
+                            for display_name in selected_tp_display_names
+                        ]
 
-                        tp_text = f" (+{', '.join(selected_tp_names)})" if selected_tp_names else ""
+                        total_tp_price = sum(
+                            current_toppings.get(tp_name, {}).get("price", 0)
+                            for tp_name in selected_tp_names
+                        )
+                        total_tp_cost = sum(
+                            current_toppings.get(tp_name, {}).get("cost", 0)
+                            for tp_name in selected_tp_names
+                        )
+
+                        # เก็บ name เป็นภาษาไทยสำหรับหลังบ้าน และ display_name เป็นภาษาที่ลูกค้าเลือก
+                        tp_text_th = f" (+{', '.join(selected_tp_names)})" if selected_tp_names else ""
+                        tp_text_display = (
+                            f" (+{', '.join(selected_tp_display_names)})"
+                            if selected_tp_display_names else ""
+                        )
 
                         st.session_state.cart.append({
-                            "name": f"{item_name_th}{tp_text}",
-                            "display_name": f"{display_name}{tp_text}",
+                            "name": f"{item_name_th}{tp_text_th}",
+                            "display_name": f"{display_name}{tp_text_display}",
                             "price": price + total_tp_price,
                             "cost": cost + total_tp_cost
                         })
