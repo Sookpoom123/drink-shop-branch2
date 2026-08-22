@@ -131,6 +131,7 @@ LANGUAGES = {
         "btn_clear": "🗑️ ล้างรายการ",
         "err_table": "⚠️ กรุณาระบุชื่อหรือวิธีเรียกคิว",
         "success_msg": "🎉 ส่งออเดอร์เรียบร้อย นั่งรอเรียกคิวได้เลยครับ!",
+        "success_backend_msg": "🎉 สั่งซื้อสำเร็จ! ออเดอร์ของคุณถูกส่งเข้าหลังบ้านแล้ว กรุณารอเรียกคิวครับ",
         "toast_added": "เพิ่มรายการแล้ว!"
     },
     "🇲🇲 Myanmar": {
@@ -153,6 +154,7 @@ LANGUAGES = {
         "btn_clear": "🗑️ ပယ်ဖျက်",
         "err_table": "⚠️ အမည် ထည့်ပါ",
         "success_msg": "🎉 မှာယူမှု အောင်မြင်ပါသည်!",
+        "success_backend_msg": "🎉 မှာယူမှု အောင်မြင်ပါသည်! အော်ဒါကို နောက်ဘက်စနစ်သို့ ပို့ပြီးပါပြီ",
         "toast_added": "ထည့်ပြီးပါပြီ!"
     },
     "🇨🇳 中文/EN": {
@@ -175,6 +177,7 @@ LANGUAGES = {
         "btn_clear": "🗑️ Clear",
         "err_table": "⚠️ Please enter Name / Queue No.",
         "success_msg": "🎉 Order Sent! Please take a seat.",
+        "success_backend_msg": "🎉 Order successful! Your order has been sent to the kitchen.",
         "toast_added": "Added!"
     }
 }
@@ -264,6 +267,10 @@ def load_db_data():
 if "cart" not in st.session_state:
     st.session_state.cart = []
 
+# สถานะยืนยันการส่งออเดอร์สำเร็จ
+if "order_success" not in st.session_state:
+    st.session_state.order_success = False
+
 # --- เลือกภาษา ---
 selected_lang = st.segmented_control(
     "Language",
@@ -273,6 +280,13 @@ selected_lang = st.segmented_control(
 ) or "🇹🇭 ไทย"
 
 t = LANGUAGES[selected_lang]
+
+# แสดงข้อความยืนยันหลังจากบันทึกออเดอร์สำเร็จแล้ว
+if st.session_state.order_success:
+    st.success(t["success_backend_msg"], icon="🎉")
+    st.toast(t["success_backend_msg"], icon="🎉")
+    # แสดงข้อความเฉพาะรอบการโหลดนี้ เพื่อไม่ให้ขึ้นซ้ำเมื่อผู้ใช้ใช้งานต่อ
+    st.session_state.order_success = False
 
 # --- Header ---
 st.markdown(
@@ -428,9 +442,9 @@ else:
                         """, (table_number.strip(), items_json, total_price, total_cost, 'pending', created_timestamp))
                         conn.commit()
 
+                    # บันทึกสำเร็จแล้ว จึงล้างตะกร้าและแสดงการยืนยันหลัง rerun
                     st.session_state.cart = []
-                    st.balloons()
-                    st.success(t['success_msg'])
+                    st.session_state.order_success = True
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error submitting order: {e}")
