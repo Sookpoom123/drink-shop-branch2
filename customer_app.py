@@ -11,7 +11,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- ระบบเชื่อมต่อ DB แบบ Cached Connection (ลด latency ในการเปิด connection ใหม่) ---
+# --- ระบบเชื่อมต่อ DB แบบ Cached Connection ---
 @st.cache_resource
 def init_connection():
     db_url = None
@@ -28,7 +28,7 @@ def init_connection():
         
     return psycopg2.connect(db_url)
 
-# --- CSS ตกแต่ง (แก้ไขปัญหาการซ้อนทับของ Element และ Scrollbar) ---
+# --- CSS ตกแต่ง (จัดรูปให้อยู่กึ่งกลางเป๊ะทุกหน้าจอ) ---
 st.markdown(
     """
     <style>
@@ -58,27 +58,21 @@ st.markdown(
         margin-bottom: 10px;
     }
 
-    div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        gap: 6px !important;
-        width: 100% !important;
-    }
-
+    /* 📌 จัดการรูปภาพให้อยู่กึ่งกลางเสมอ ไม่ว่าจะจอกว้างแค่ไหน */
     div[data-testid="stImage"] {
         display: flex !important;
         justify-content: center !important;
         align-items: center !important;
-        margin: 0 auto 6px auto !important;
         width: 100% !important;
+        margin: 0 auto 8px auto !important;
     }
 
     div[data-testid="stImage"] img {
         border-radius: 8px !important;
         object-fit: contain !important;
-        max-height: 150px !important;
+        max-height: 160px !important;
         width: auto !important;
+        margin: 0 auto !important;
     }
 
     div.stButton > button {
@@ -242,7 +236,7 @@ def translate_item(name_th, lang):
             result = result.replace(th_word, f" {target_word} ")
     return result.strip()
 
-# --- ดึงข้อมูลเมนูและท็อปปิ้งพร้อม Caching ---
+# --- ดึงข้อมูลเมนูและท็อปปิ้ง ---
 @st.cache_data(ttl=60)
 def load_db_data():
     menu_dict = {}
@@ -256,7 +250,6 @@ def load_db_data():
         with conn.cursor() as c:
             c.execute("SELECT name, cost, price, image_url FROM menu_items ORDER BY name ASC")
             for r in c.fetchall():
-                # แก้เงื่อนไขดึงรูปให้รอบรับ URL ทุกรูปแบบ ไม่ตัดรูปทิ้ง
                 img = str(r[3]).strip() if len(r) > 3 and r[3] and str(r[3]).strip() != "" else None
                 menu_dict[r[0]] = {"cost": float(r[1]), "price": float(r[2]), "image_url": img}
             
@@ -323,6 +316,7 @@ else:
                     st.session_state[counter_key] = 0
 
                 with cols[j]:
+                    # 📌 รูปภาพจัดให้อยู่กึ่งกลางในคอลัมน์ของตัวเอง
                     if image_url:
                         st.image(image_url, use_container_width=True)
 
@@ -336,10 +330,12 @@ else:
                         unsafe_allow_html=True
                     )
                     
+                    # 📌 Key ที่ขึ้นอยู่กับ counter เพื่อให้สามารถล้างค่าท็อปปิ้งเดิมได้อัตโนมัติเมื่อกดสั่ง
+                    multiselect_key = f"tp_{item_name_th}_{st.session_state[counter_key]}"
                     selected_tps = st.multiselect(
                         t['topping_label'], 
                         options=topping_options, 
-                        key=f"tp_{item_name_th}_{st.session_state[counter_key]}",
+                        key=multiselect_key,
                         placeholder=t['no_topping']
                     )
                     
@@ -357,8 +353,10 @@ else:
                             "cost": cost + total_tp_cost
                         })
 
+                        # ⚡ เปลี่ยนค่า counter เพื่อให้ multiselect รีเซ็ตเป็นค่าว่างทันทีสำหรับคิวถัดไป
                         st.session_state[counter_key] += 1
                         st.toast(t['toast_added'], icon="🛒")
+                        st.rerun()
 
 # ==========================================
 # 🛒 ตะกร้าสินค้า
@@ -391,6 +389,7 @@ else:
         with col_del:
             if st.button("❌", key=f"remove_cart_{idx}", help="ลบรายการนี้"):
                 st.session_state.cart.pop(idx)
+                st.rerun()
 
     st.markdown("<hr style='border: 0; border-top: 1.5px dashed #C8B2A2; margin: 8px 0;'>", unsafe_allow_html=True)
 
@@ -426,9 +425,11 @@ else:
                     st.session_state.cart = []
                     st.balloons()
                     st.success(t['success_msg'])
+                    st.rerun()
                 except Exception as e:
                     st.error(f"Error submitting order: {e}")
 
     with col_clear_btn:
         if st.button(t['btn_clear'], use_container_width=True):
             st.session_state.cart = []
+            st.rerun()
